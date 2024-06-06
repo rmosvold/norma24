@@ -1,0 +1,1505 @@
+#+title: Misaligned communication among partners in practice – potential impediments for development efforts in mathematics
+#+author: Reidar Mosvold
+#+EXPORT_EXCLUDE_TAGS: noexport
+
+University of Stavanger, Stavanger, Norway; [[mailto:reidar.mosvold@uis.no][reidar.mosvold@uis.no]]
+
+Reform efforts in mathematics education often emphasize investigations of mathematical problems, with the aim of enhancing student participation in productive discussions, but it has proven difficult to make real and sustainable change of practice. This paper reports from a project that aims at establishing a system for educational development in four subject areas, through a partnership between researchers and schools. Data from the pilot phase of this project are analyzed with computational text analysis, to identify potential misalignment in communication, which can prohibit the establishment of such a system for educational development in mathematics.
+
+Keywords: Mathematics teachers, professional development, topic modelling.
+
+* Introduction
+Recent research on professional development in mathematics education has paid increasing attention to the challenges of establishing partnership and community among diverse participants, and an entire volume of the /International Handbook of Mathematics Teacher Education/ is devoted to this. In one of the chapters in this handbook, Santagata et al. (2020) started out by reflecting on a professional development initiative that failed to reach its potential. That study appeared to echo one of Clarke’s (2007) ten principles of professional development in mathematics education: recognizing that development can be both challenging and painful. Decades of research on professional development of mathematics teachers indicate that it is important to work with groups of teachers (not only individuals) in partnerships, focusing on issues that are of relevance to the teachers, and letting the teachers participate actively in activities that are close to their practice (Clarke, 2007). The present study reports from such an effort, and, like the study of Santagata et al. (2020), it aims at scrutinizing and learning from a professional development initiative that failed to reach its potential.
+
+This professional development effort is part of a larger project, /Partners in Practice/, which aims to develop collaboration among researchers and teachers, and to facilitate collaborative and continuous development of teaching practice. A core idea is to develop student participation in teaching with problems (Lampert, 2001), and to facilitate collective explorations of what reform ideas about problem solving, classroom discussions, and student participation might look like in regular Norwegian primary classrooms. From the outset, we[fn:1] clarified that our intention was not to provide solutions or directions that the teachers could straightforwardly implement, but we rather wanted to create a space where we could explore these issues together with the teachers. In a post-interview, after three semesters of collaboration, the teachers reported that little had changed, and they were disappointed that they had not received any recipes for how to carry out discussions of mathematical problems in a way that could facilitate student participation. However discouraging such feedback might be, it made us realize that we must have talked past each other in the sessions. The present study thus aims at investigating the communication of facilitators and teachers throughout the professional development sessions, to identify possible areas of misalignment in our communication. The following research questions are approached:
+
+1. How does the communication of facilitators and teachers differ across sessions?
+
+2. What are key topics in the communication of facilitators and teachers across sessions?
+
+3. How do facilitators and teachers communicate about these key topics across sessions?
+
+Since it can be challenging to analyze communication in a context where the researcher is also participant, the present study applies techniques from computational text analysis in an effort to avoid bias.
+
+* Methods
+The collaboration involved a group of elementary mathematics teachers in six two-hour professional development sessions over a period of 18 months. The overall progress of the sessions was organized in three stages. The initial stage provided the teachers with opportunities to get first-hand experiences with mathematical problem solving. The second stage consisted of guided practice, where participants engaged in cycles of planning, teaching, and reflection — as described in common frameworks for professional development (e.g., Kavanagh et al., 2020).  Following the principle of gradual release of responsibility, teachers then were expected to work more independently in the final stage and continue exploring and developing their own practice more independently.  Five teachers and three researchers participated in the group. In some sessions, the school principal and vice-principal joined in on the discussions. The focus here is on the participants who were present in all six sessions: two experienced male teachers (pseudonyms: “Roy” and “Ted”), and one facilitator (Reidar, the author of this paper).
+
+Efforts to identify potential misalignment in communication can be influenced by bias, and in particular when the author is one of the communication partners. To avoid some of the bias, the transcribed recordings from the six sessions were analyzed by using techniques from computational text analysis with Quanteda (Benoit et al., 2018), which is a package for doing quantitative text analysis in R (R Core Team, 2023). The analysis in this study primarily involved three techniques from computational text analysis. The first technique — keyness analysis — was used to answer the question about differences in communication between participants. Keyness analysis is a technique that allows for computing relative frequencies of all words used by one participant and compare it with a reference group. In this study, keyness analysis enabled comparing the relative frequencies of words across the three target participants (Roy, Ted, and Reidar).
+
+The second technique was topic modeling, and in particular Latent Dirichlet Allocation (Blei et al., 2003). Topic modeling is a type of unsupervised machine learning that applies a probability model to identify patterns in a set of documents or texts. Applying such probability models generates lists of words that are likely to occur together, and these lists of words constitute “topics” or categories. In this study, topic modeling was used to identify key topics in the communication of the three target participants.
+
+The third set of techniques, which was used to analyze participants’ communication around the key topics that were identified through topic modeling, was a combination of dictionary analysis, keyword-in-context analysis, and frequency analysis. Based on the identified topics, the list of all words that were used by the three participants in the data material was carefully considered, and the author generated “dictionaries” of words that related to each of the three topics respectively. The dictionary analysis function in Quanteda was then used to identify how often each participants’ communication (their word use) related to each of the topics. Keyword-in-context analysis was then applied to investigate how participants used keywords from the topics in a smaller context — five words before and after the keyword. This provided a better understanding of how the words were used in context and not only focus on individual words (often referred to as a “bag-of-words” model).
+
+** Preparation for analysis                                        :noexport:
+*** Cleaning up transcripts
+The starting point was the complete transcript files, where each line started with the name of the person speaking, followed by a colon. For the transcripts from each session, I created separate files with only the utterances of the selected participant. To clean up a transcript file like this, I first used the following Emacs Lisp function:
+
+#+begin_src emacs-lisp
+(defun delete-lines-not-starting-with (word)
+  "Delete all lines in the current buffer that do not start with WORD."
+  (interactive "sWord: ")
+  (save-excursion
+    (goto-char (point-min))
+    (while (not (eobp))
+      (if (not (looking-at (concat "^" word)))
+          (delete-region (line-beginning-position) (1+ (line-end-position)))
+        (forward-line 1)))))
+#+end_src
+
+By applying this script, I could delete all lines that did not start with for instance the phrase “Reidar: ”, and thereby retain a file with only the utterances from that one participant. Next, I would use the following function to delete these phrases, which are actually not part of the utterances:
+
+#+begin_src emacs-lisp
+(defun delete-occurrences (word)
+  "Prompt for a word or phrase and delete every occurrence of it in the current buffer."
+  (interactive "sEnter word or phrase to delete: ")
+  (save-excursion
+    (goto-char (point-min))
+    (while (search-forward word nil t)
+      (replace-match "" nil t))))
+#+end_src
+
+*** Loading of libraries
+#+begin_src R :session :results output
+library(quanteda)
+library(quanteda.textstats)
+library(quanteda.textplots)
+library(readtext)
+library(topicmodels)
+library(ldatuning)
+require(readtext)
+library(tidyverse)
+#+end_src
+
+#+RESULTS:
+
+*** Importing of files
+#+begin_src R :session :results output
+my_data <- readtext("~/Github/Norma24/Data/*.txt",
+                    docvarsfrom = "filenames",
+                    dvsep = "-",
+                    docvarnames = c("teacher", "meeting"))
+# Creation of document corpus
+my_corpus <- corpus(my_data)
+#+end_src
+
+#+RESULTS:
+
+*** Tokenization and creation of document feature matrix
+#+begin_src R :session :results output
+complete_tokens <- tokens(my_corpus, what = "word", 
+                          remove_punct = TRUE, 
+                          remove_numbers = TRUE, 
+                          remove_symbols = TRUE)
+complete_tokens <- tokens_select(complete_tokens, stopwords('norwegian'), selection='remove')
+complete_dfm <- dfm(complete_tokens)
+complete_dfm <- dfm_remove(complete_dfm, c("jo", "5", "1", "eh", "eeh", "mm", "mhm", "mmm", "mmmm", "nei", "altså", "måte", "uhørbart", "litt", "hehe", "to", "ti", "4", "liksom", "må", "2", "3", "få", "okey", "ok", "okei", "jaja", "raymond", "randi", "oi", "x-2"))
+
+complete_teachers <- dfm_group(complete_dfm, groups = teacher)
+#+end_src
+
+#+RESULTS:
+
+*** Establishing subset corpora
+#+begin_src R :session :results output
+reidar_corpus <- corpus_subset(my_corpus, teacher %in% c("reidar"))
+reidar_tokens <- tokens(reidar_corpus, what = "word",
+                        remove_punct = TRUE,
+                        remove_numbers = TRUE,
+                        remove_symbols = TRUE)
+reidar_tokens <- tokens_tolower(reidar_tokens)
+reidar_tokens <- tokens_select(reidar_tokens,
+                               stopwords('norwegian'),
+                               selection='remove')
+reidar_dfm <- dfm(reidar_tokens)
+reidar_dfm <- dfm_remove(reidar_dfm, c("reidar", "mmm", "kanskje", "ting", "jaja", "veldig", "jo", "5", "1", "eh", "eeh", "mm", "mmm", "mmmm", "mhm", "nei", "altså", "måte", "uhørbart", "litt", "hehe", "to", "ti", "4", "liksom", "må"))
+#+end_src
+
+#+RESULTS:
+
+#+begin_src R :session :results output
+roy_corpus <- corpus_subset(my_corpus, teacher %in% c("roy"))
+roy_tokens <- tokens(roy_corpus, what = "word",
+                        remove_punct = TRUE,
+                        remove_numbers = TRUE,
+                        remove_symbols = TRUE)
+roy_tokens <- tokens_tolower(roy_tokens)
+roy_tokens <- tokens_select(roy_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+roy_dfm <- dfm(roy_tokens)
+roy_dfm <- dfm_remove(roy_dfm, c("roy", "jo", "5", "1", "eh", "eeh", "mm", "nei", "altså", "måte", "uhørbart", "litt", "hehe", "to", "ti", "4", "liksom", "må"))
+#+end_src
+
+#+RESULTS:
+
+#+begin_src R :session :results output
+ted_corpus <- corpus_subset(my_corpus, teacher %in% c("ted"))
+ted_tokens <- tokens(ted_corpus, what = "word",
+                        remove_punct = TRUE,
+                        remove_numbers = TRUE,
+                        remove_symbols = TRUE)
+ted_tokens <- tokens_tolower(ted_tokens)
+ted_tokens <- tokens_select(ted_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+ted_dfm <- dfm(ted_tokens)
+ted_dfm <- dfm_remove(ted_dfm, c("ted", "jo", "5", "1", "2", "3", "eh", "mm", "nei", "altså", "måte", "uhørbart", "litt", "hehe", "to", "ti", "4", "liksom", "må", "få", "okey", "ok", "okei", "jaja"))
+#+end_src
+
+#+RESULTS:
+
+* Results
+** Difference in communication between participants
+A ‘keyness’ analysis compared the relative frequency of the words used among the participants to identify the words that were most likely used by one participant as compared with the others (see Table 1).
+
+#+CAPTION: Table 1: Relative frequency of words across participants
+| *Participant* | *Key words*   | *Frequency* | *Relative frequency* |
+|-------------+-------------+-----------+--------------------|
+| Reidar      | perhaps     |       166 |                .86 |
+|             | try         |       123 |                .84 |
+|             | students    |       126 |                .78 |
+|             | thing       |       115 |                .76 |
+|             | talked      |        61 |                .85 |
+|             | different   |        45 |                .87 |
+|             | further     |        45 |                .85 |
+|             | important   |        48 |                .83 |
+| Roy         | class       |        15 |                .41 |
+|             | multiply    |         8 |                .62 |
+|             | fourth      |         5 |                .83 |
+|             | drove       |         5 |                .83 |
+|             | parenthesis |         5 |                .83 |
+|             | struggle    |         4 |               1.00 |
+|             | hear        |         6 |                .67 |
+|             | particular  |         6 |                .67 |
+| Ted         | held        |        30 |                .75 |
+|             | happen      |        17 |                .89 |
+|             | math        |        33 |                .66 |
+|             | sit         |        22 |                .69 |
+|             | motivation  |        14 |                .82 |
+|             | right       |        58 |                .50 |
+|             | come        |        36 |                .55 |
+|             | work        |        31 |                .57 |
+
+The keyness analysis made it possible to identify differences in the talk of the three participants. Reidar[fn:2] used words like “perhaps” and “try”, and these words were used in contexts that communicated possibilities and things to try out. Oftentimes, he used a phrase like “we can try”, to indicate that there were some things the group could explore out as part of the partnership. Reidar also used the word “students” relatively more often than Roy and Ted. This involved directing attention to the students, prompting the group to consider how the students might encounter the problems they discussed, and how they might be thinking about it.
+
+Whereas Reidar frequently attended to students and their thinking more in general, Roy often talked about what he experienced in his own “class”. When investigating this further, his talk often focused on challenges he experienced, and how his students struggled; the word “struggle” came up high on the list of words he used relatively more often than the two other participants. When considering the words Ted used more often than the others, it can be noticed that the word “held” was often part of a phrase that, translated from Norwegian, means something like “I was about to say”. The word “happen” is more interesting, however, and Ted often used this word when he talked about how students were experiencing mathematics, and how they would be confused and wonder about “what is happening” in the context of a particular mathematical task. Ted also talked more about “motivation” than the two other participants, and this mostly referred to students’ motivation — or lack thereof. Like with Roy, a lot of Ted’s talk revolved around challenges that he experienced with students who were not getting it and lacked motivation for doing mathematics.
+
+*** Analysis in R                                                  :noexport:
+Below is the keyness analysis for each of the three participants.
+
+**** Reidar
+#+begin_src R :session :results output
+reidar_keyness <- textstat_keyness(complete_teachers, target = 1)
+
+head(reidar_keyness, 10)
+cat("\n")
+tail(reidar_keyness, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature     chi2            p n_target n_reference
+1  kanskje 82.13315 0.000000e+00      166          28
+2    prøve 56.70078 5.073719e-14      123          23
+3  elevene 39.40795 3.438932e-10      126          36
+4     ting 30.83403 2.810658e-08      115          37
+5  snakket 28.70506 8.428315e-08       61          11
+6    ulike 23.16942 1.483374e-06       45           7
+7   videre 21.35409 3.818056e-06       45           8
+8   viktig 20.30876 6.589824e-06       48          10
+9    enige 17.95716 2.259333e-05       29           3
+10 tingene 17.95716 2.259333e-05       29           3
+
+        feature      chi2            p n_target n_reference
+3227 motivasjon -15.36076 8.881364e-05        1          16
+3228        mye -15.43744 8.528174e-05       39          73
+3229       sant -15.74687 7.240745e-05       41          76
+3230     holder -16.17542 5.773852e-05        2          19
+3231     fillen -17.12420 3.501328e-05        0          15
+3232      skjer -17.62137 2.695423e-05        1          18
+3233     sitter -18.26594 1.921112e-05        5          27
+3234      matte -19.71614 8.983942e-06       11          39
+3235     kommer -21.54322 3.459437e-06       16          49
+3236      holdt -23.60741 1.181320e-06        6          34
+#+end_example
+
+**** Roy
+#+begin_src R :session :results output
+roy_keyness <- textstat_keyness(complete_teachers, target = 2)
+
+head(roy_keyness, 10)
+cat("\n")
+tail(roy_keyness, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+    feature     chi2            p n_target n_reference
+1   klassen 18.51103 1.689235e-05       15          22
+2     gange 18.25341 1.933791e-05        8           5
+3    fjerde 16.67500 4.436187e-05        5           1
+4    kjørte 16.67500 4.436187e-05        5           1
+5  parentes 16.67500 4.436187e-05        5           1
+6   strever 16.24647 5.561297e-05        4           0
+7     hører 14.74805 1.228747e-04        6           3
+8  spesielt 14.74805 1.228747e-04        6           3
+9         x 14.74805 1.228747e-04        6           3
+10  forhold 13.50694 2.376829e-04       12          17
+
+     feature       chi2            p n_target n_reference
+3227    ting  -6.326425 1.189519e-02       12         140
+3228   lærer  -6.458211 1.104408e-02        0          36
+3229  videre  -7.298931 6.899564e-03        1          52
+3230     roy  -7.537175 6.043872e-03        0          42
+3231      gå  -8.186464 4.220410e-03        1          57
+3232  sammen  -9.179806 2.447000e-03        3          83
+3233   ulike  -9.337102 2.245604e-03        0          52
+3234 elevene -11.771223 6.015344e-04        9         153
+3235   prøve -21.816705 2.999769e-06        2         144
+3236 kanskje -24.210214 8.637298e-07        5         189
+#+end_example
+
+**** Ted
+#+begin_src R :session :results output
+ted_keyness <- textstat_keyness(complete_teachers, target = 3)
+
+head(ted_keyness, 10)
+cat("\n")
+tail(ted_keyness, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+      feature     chi2            p n_target n_reference
+1       holdt 35.08999 3.148145e-09       30          10
+2       skjer 29.57955 5.366806e-08       17           2
+3       matte 27.59565 1.495144e-07       33          17
+4      fillen 23.77299 1.083929e-06       14           1
+5      sitter 20.57046 5.747633e-06       22          10
+6  motivasjon 20.35834 6.421256e-06       14           3
+7        sant 17.75930 2.506885e-05       58          59
+8      kommer 17.19528 3.372732e-05       36          29
+9       jobbe 16.80021 4.152872e-05       31          23
+10       sykt 16.50902 4.841917e-05        9           0
+
+       feature      chi2            p n_target n_reference
+3227  egentlig -12.58420 3.890219e-04       23         110
+3228   handler -12.75406 3.552371e-04        8          61
+3229      tror -13.23879 2.742147e-04       23         112
+3230   snakket -15.92790 6.580143e-05        7          65
+3231      ting -16.15928 5.823252e-05       25         127
+3232   elevene -16.73492 4.298263e-05       27         135
+3233      sånt -16.92910 3.880226e-05        3          51
+3234     prøve -20.05244 7.534714e-06       21         125
+3235 problemet -20.32925 6.519625e-06       19         119
+3236   kanskje -35.17770 3.009506e-09       23         171
+#+end_example
+
+** Key topics in the communication of participants
+Topic modeling was then used to identify key topics in the communication of participants. Tuning of different models indicated that three topics were prevalent in each participant’s communication. The list of words that were generated by topic modeling was validated by checking the transcripts for how these words were used together.
+
+#+CAPTION: Table 2: Most prevalent topics for each participant
+| *Participant* | *Topics*                         | *Sessions* |
+|-------------+--------------------------------+----------|
+| Reidar      | Trying out the problem         | 1, 2     |
+|             | Attending to student thinking  | 3, 4, 6  |
+|             | Anticipating student thinking  | 5        |
+| Roy         | Understanding the problem      | 1, 2     |
+|             | Anticipating student responses | 3        |
+|             | Doing and finding              | 4, 5, 6  |
+| Ted         | Anticipating student thinking  | 1, 4     |
+|             | Finding and getting            | 2, 3     |
+|             | Thinking about a problem       | 5, 6     |
+
+Table 2 provides lists of the interpreted topics along with an overview of which session the topics were most prevalent. For Reidar, the first topic features “problem” as the top keyword, followed by “number”, “get”, and “try”. This topic was most prevalent in the first two sessions, where the participants talked a lot about a problem on consecutive sums. A second topic had “try” as the top keyword, followed by “students”, “believe”, and “think”, and this topic was prevalent in sessions 3, 4, and 6. Finally, a third topic featured “students”, “believe”, and “think” as the highest featuring keywords. This topic was most prevalent in session 5. At the outset, the second and third topic appear similar, but they are different. The second topic appears to focus on trying out a problem, and then attending to students’ thinking while working on it. The third topic seemed to focus more on anticipating students’ thinking.
+
+When considering the topics that come out of the analysis of Roy’s communication, the first topic emphasizes “problem” as the most prevalent keyword. This was most prevalent in the first two sessions, where Roy talked a lot about the problem, and shared his thinking about trying to understand the problem. A second topic involved the keyword “student”, along with keywords like “say” and “answer”, which indicates a focus on what the students might say and what answers they might get (anticipating). A third topic for Roy involved several action words, like “get”, “do”, and “find”, and these topics were prevalent in sessions 4--6.
+
+For Ted, one topic involved top keywords like “right” and “think”, but also keywords like “find”, “do”, and “students”. This topic was most prevalent in sessions 1 and 4. Another topic had “find” as a top keyword, and it also involved keywords like “other”, “very”, “much”, and “get”. This was most prevalent in sessions 2 and 3. A third topic features “times” as one of the top keywords, and we see that it was mostly used in talk about multiplication. Another featured keyword was “think”, and this topic was most prevalent in sessions 5 and 6. In session 5, we see that these keywords were used when discussing a particular problem, and he seemed to reflect a lot about how students might think about this problem.
+
+Altogether, there appeared to be three main themes — two that were prominent across all participants. All three participants talked a lot about the /problem/ and about the /students/. Roy and Ted also talked a lot about /doing/finding/ as a third topic. Differences in how the participants talked about these three topics can be seen already from the above interpretations of the topic models. These differences in communication are further investigated below.
+
+*** Analysis in R                                                  :noexport:
+Below is the topic modeling for each of the three participants. A preliminary tuning of topics indicated that three topics might be appropriate. Below is an example of the code used for tuning of the Reidar subset corpus:
+
+#+begin_src R :session :results output
+# create models with different number of topics
+result <- ldatuning::FindTopicsNumber(
+  reidar_dfm,
+  topics = seq(from = 2, to = 20, by = 1),
+  metrics = c("CaoJuan2009",  "Deveaud2014"),
+  method = "Gibbs",
+  control = list(seed = 77),
+  verbose = TRUE
+)
+
+# Plot the results
+FindTopicsNumber_plot(result)
+#+end_src
+
+**** Reidar 
+#+begin_src R :session :results output
+n.topics <- 3
+dfm2topicmodels <- convert(reidar_dfm, to = "topicmodels")
+lda.model <- LDA(dfm2topicmodels, n.topics, control = list(seed = 1234))
+lda.model
+as.data.frame(terms(lda.model, 10))
+
+# Showing what texts each topic is most prevalent in
+cat("\n")
+data.frame(Topic = topics(lda.model))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+A LDA_VEM topic model with 3 topics.
+   Topic 1  Topic 2   Topic 3
+1    prøve  elevene problemet
+2  elevene    prøve        få
+3     tror     tror   elevene
+4       få   tenker      tall
+5     tall  snakket  egentlig
+6    gjøre    andre     prøve
+7   tenker egentlig      tror
+8   sammen  handler     andre
+9    finne    ulike    tenkte
+10    fall     fram        sa
+
+              Topic
+reidar-s1.txt     3
+reidar-s2.txt     1
+reidar-s3.txt     2
+reidar-s4.txt     1
+reidar-s5.txt     3
+reidar-s6.txt     2
+#+end_example
+
+**** Roy
+#+begin_src R :session :results output
+n.topics <- 3
+dfm2topicmodels <- convert(roy_dfm, to = "topicmodels")
+lda.model <- LDA(dfm2topicmodels, n.topics, control = list(seed = 1234))
+lda.model
+as.data.frame(terms(lda.model, 10))
+
+# Showing what texts each topic is most prevalent in
+cat("\n")
+data.frame(Topic = topics(lda.model))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+A LDA_VEM topic model with 3 topics.
+    Topic 1   Topic 2  Topic 3
+1      sier problemet      mye
+2  egentlig      tror egentlig
+3    ganger    veldig    pluss
+4    veldig      gjør    finne
+5       ser      sant      vel
+6      tall   akkurat     sant
+7    kommer       tre     helt
+8       del   kjenner    gjøre
+9      gang   klassen      alt
+10   svaret      sier       få
+
+           Topic
+roy-s1.txt     2
+roy-s2.txt     2
+roy-s3.txt     1
+roy-s4.txt     1
+roy-s5.txt     3
+roy-s6.txt     3
+#+end_example
+
+**** Ted
+#+begin_src R :session :results output
+n.topics <- 3
+dfm2topicmodels <- convert(ted_dfm, to = "topicmodels")
+lda.model <- LDA(dfm2topicmodels, n.topics, control = list(seed = 1234))
+lda.model
+as.data.frame(terms(lda.model, 10))
+
+# Showing what texts each topic is most prevalent in
+cat("\n")
+data.frame(Topic = topics(lda.model))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+A LDA_VEM topic model with 3 topics.
+   Topic 1 Topic 2 Topic 3
+1    finne     mye    sant
+2    andre   finne  tenker
+3     sant    sant  ganger
+4   veldig     fem     ser
+5    gjøre     får  kommer
+6      får    fikk     mye
+7      mye      se   gjøre
+8    matte     vel    gjør
+9      går  veldig     får
+10     ser   andre   gjort
+
+           Topic
+ted-s1.txt     3
+ted-s2.txt     2
+ted-s3.txt     1
+ted-s4.txt     3
+ted-s5.txt     3
+ted-s6.txt     1
+#+end_example
+
+** Participants' communication about key topics
+Based on the analysis of key topics, additional analyses were conducted to learn more about how the participants communicated about these key topics. All the words used by participants were considered to create dictionaries, which included every word that could be related to each topic. For instance, the dictionary for the /student/ category included words like student, students, class, fifth-grader, group, boys, and girls. These were all words that participants used when talking about students. A dictionary analysis then showed how much the participants talked about each category (Table 3).
+
+#+CAPTION: Table 3: Frequencies (and relative frequencies) of words used across categories
+| *Participant* | *Problem*    | *Students*   | *Doings*     |
+|-------------+------------+------------+------------|
+| Reidar      | 304 (.010) | 295 (.010) | 602 (.020) |
+| Roy         | 99 (.011)  | 68 (.008)  | 167 (.019) |
+| Ted         | 140 (.007) | 114 (.006) | 383 (.020) |
+
+The dictionary analysis indicates that all participants talked more about /doings/ than any of the other two topics. Roy used relatively more words that belonged to the /problem/ category than Ted, whereas Ted used relatively fewer words about /students/. Both Ted and Roy talked more about the problem than about the students, whereas Reidar’s talk was more evenly distributed among the categories of problem and students. To learn more about differences in the way participants talked about these topics, keyword-in-context analysis was applied, with particular emphasis on identifying possible variations in the participants’ talk about /students/ and /problem/.
+
+The kwic function in Quanteda was applied to analyze word use in a context of five words before and after the keywords “problem” and “student” (and their derivatives). These strings of text were then analyzed by use of word-frequency analysis. One evident difference was the use of pronouns. For Reidar, the second most frequently occurring word in the context around “problem” was the pronoun “we”. Much of his talk prompted teachers to reflect on the problem, and his frequent use of the word “we” prompted participants to reflect on the problem as a group. For Roy, the most frequently occurring pronouns were “they” (pointing to the students) and “I”. Both pronouns were among his ten most frequently occurring words in the context around the keyword “problem”. The word “they” often pointed to the students. For instance, he talked about finding a “method to solve a problem that they don’t already know”, and “if they don’t understand the problem”. His use of the pronoun “I” often involved reflections about how he had struggled or failed to understand the problem himself. Ted, on the other hand, rarely used the pronoun “I” when talking about the problem, but he frequently used the pronouns “they” and “we”. He often reflected on what the students (they) would do and what they would or would not understand.  When using the pronoun “we”, it mostly referred to them as teachers and not the entire group as a community. In other words, Reidar’s “we” included both teachers and researchers participating in the group, whereas Ted’s “we” did not.
+
+When considering other relevant words that were used in the context around participants' talk about the problem, it can be noticed that Roy relatively often used words like “method”, “solve”, and “algorithm”. He often focused on finding a method or an algorithm to solve the problem, and he explained that the ability to use algorithms to solve problems was an aspect of mathematics that he had always liked. Ted did not use words like “method” and “algorithm” in this context, but he often used words like “solve”, “find”, and “work”, which points to the category of /doing/finding/. Reidar frequently used words like “students”, “present”, and “try”. This involved talk about considering how the students might understand the problem, what to think about when presenting the problem (to the students), and things the group might consider trying when solving the problem, or when presenting the problem to students. Such perspectives did not come up when Roy and Ted talked about the problem.
+
+Analysis of participants’ word use in a context of five words before and after the keyword “student” also revealed some clear tendencies concerning use of pronouns. The most frequently used pronoun by Reidar was again “we”, whereas Roy and Ted more frequently used the pronouns “they” and “I”. Roy and Ted rarely used the pronoun “we” in this context, which indicates that they primarily refer to their own personal experiences and thinking about students, rather than reflections about how “we” as a group can consider and relate to the students and their thinking in these contexts.
+
+After removal of stopwords from the analysis, Reidar's most frequently used words were “get” and “give”, and he also frequently used words like “various” and “experience”. When looking more into these contexts, it appears that Reidar often talked about how to “get” students engaged, and how to “get” students to participate. The word “give” was used several times in the context of giving students ownership, and he often talked about giving students particular “experiences”, which was another frequently used word in this context. A word like various or different is often used to highlight how students are different, but Reidar also used the word to highlight difference in student strategies, and different possible ways of facilitating students' experiences. When Roy and Ted talked about the students as “they”, their talk often involved characterizations of students. For instance, Ted described students as “strong” or “weak”, and he said that there are “lots of concepts that the students don’t understand”. Instead of focusing on what they as teachers could do to stimulate students’ thinking and exploration, Roy and Ted often talked about what students would not be able to do or understand.
+
+*** Analysis in R                                                  :noexport:
+**** Dictionary analysis
+***** Defining the dictionary
+#+begin_src R :session :results output
+norma_dictionary <- dictionary(list(problem = c("brøkoppgave*", "delestykker", "grubleoppgavene", "løsning*", "matteoppgave*", "mattestykke*", "oppgave*", "problem", "probleme*", "problemløsning*", "påskenøtter", "regnestykke*", "sannsynlighetsregningsoppgaver", "svar*", "tekstoppgave*"),
+                                    students = c("cklassen", "elev*", "femteklass*", "femtetrinnsklassen", "fjerdeklasse", "grupp*", "gutt*", "jente*", "klasse*", "medelevene", "mellomtrinnet", "sidemannen", "sjette*", "sjuende*", "syvende*", "åttende*"),
+                                    doings = c("aktive", "aktivitet", "algoritm*", "automatiser*", "begyn*", "bruk*", "divisjonsalgoritmen", "dividere", "doble", "finne", "finner", "framgangsmetoden", "førsteklassestrategi", "gjor*", "gjør*", "hoderegning", "jobbe*", "lage", "metode*", "oppdage*", "prøvd", "prøvde", "prøve", "prøver", "strategi", "tegnestrategien", "øvd", "øve")))
+#+end_src
+
+#+RESULTS:
+
+***** Conducting dictionary analysis for each participant
+#+begin_src R :session :results output
+dict_dfm_reidar <- dfm_lookup(reidar_dfm, norma_dictionary, nomatch = "unmatched")
+dict_dfm_reidar
+cat("\n")
+
+dict_dfm_roy <- dfm_lookup(roy_dfm, norma_dictionary, nomatch = "unmatched")
+dict_dfm_roy
+cat("\n")
+
+dict_dfm_ted <- dfm_lookup(ted_dfm, norma_dictionary, nomatch = "unmatched")
+dict_dfm_ted
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Document-feature matrix of: 6 documents, 4 features (0.00% sparse) and 2 docvars.
+               features
+docs            problem students doings unmatched
+  reidar-s1.txt      71       17     80      1049
+  reidar-s2.txt      69       50    123      1854
+  reidar-s3.txt      42       55    134      1552
+  reidar-s4.txt      27       31     73       782
+  reidar-s5.txt      39       67     67       993
+  reidar-s6.txt      56       75    125      1644
+
+Document-feature matrix of: 6 documents, 4 features (0.00% sparse) and 2 docvars.
+            features
+docs         problem students doings unmatched
+  roy-s1.txt      21        8      9       186
+  roy-s2.txt      10       11     16       238
+  roy-s3.txt      14       14     44       589
+  roy-s4.txt      20        3     33       453
+  roy-s5.txt       7       13     21       261
+  roy-s6.txt      27       19     44       624
+
+Document-feature matrix of: 6 documents, 4 features (0.00% sparse) and 2 docvars.
+            features
+docs         problem students doings unmatched
+  ted-s1.txt      23       15     64       606
+  ted-s2.txt      37       17     80       906
+  ted-s3.txt      19       24     78      1074
+  ted-s4.txt       6        6     33       436
+  ted-s5.txt      40       17     73       976
+  ted-s6.txt      25       35     55       877
+#+end_example
+
+**** KWIC analysis
+***** Preparation for KWIC-analysis
+KWIC-analysis works best when stopwords are not removed, so I prepare the data for such analysis.
+
+#+begin_src R :session :results output
+reidar_corpus <- corpus_subset(my_corpus, teacher %in% c("reidar"))
+reidar_tokens <- tokens(reidar_corpus, what = "word",
+                        remove_punct = TRUE,
+                        remove_numbers = TRUE,
+                        remove_symbols = TRUE)
+reidar_tokens <- tokens_tolower(reidar_tokens)
+
+roy_corpus <- corpus_subset(my_corpus, teacher %in% c("roy"))
+roy_tokens <- tokens(roy_corpus, what = "word",
+                        remove_punct = TRUE,
+                        remove_numbers = TRUE,
+                        remove_symbols = TRUE)
+roy_tokens <- tokens_tolower(roy_tokens)
+
+ted_corpus <- corpus_subset(my_corpus, teacher %in% c("ted"))
+ted_tokens <- tokens(ted_corpus, what = "word",
+                        remove_punct = TRUE,
+                        remove_numbers = TRUE,
+                        remove_symbols = TRUE)
+ted_tokens <- tokens_tolower(ted_tokens)
+#+end_src
+
+#+RESULTS:
+
+***** KWIC-analysis around the word "problem"
+For each participant, I conduct the KWIC analysis with 5 words before and after the keyword (here: problem and derivatives). I then define these micro contexts as a new corpus, and conduct a frequency analysis to investigate the words that occur most frequently in these contexts, displaying the top 10 words. For the output, I first show the top 10 most frequent words, before I show the complete output of the KWIC analysis. 
+
+****** Reidar
+#+begin_src R :session :results output
+reidar_problem <- kwic(reidar_tokens, pattern =  "problem*", window = 5)
+
+reidar_problem_corpus <- corpus(reidar_problem)
+reidar_problem_tokens <- tokens(reidar_problem_corpus, what = "word")
+# To see all words, including pronouns, the next three code lines can be removed or commented out
+reidar_problem_tokens <- tokens_select(reidar_problem_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+reidar_problem_dfm <- dfm(reidar_problem_tokens)
+features_reidar_problem <- textstat_frequency(reidar_problem_dfm)
+head(features_reidar_problem, 10)
+
+cat("\n")
+reidar_problem
+#+end_src
+
+#+RESULTS:
+#+begin_example
+      feature frequency rank docfreq group
+1        litt        22    1      22   all
+2     elevene        15    2      15   all
+3    egentlig        14    3      14   all
+4      liksom        12    4      12   all
+5  presentere        11    5      11   all
+6      skjønt        11    5      11   all
+7       jobbe        10    7      10   all
+8   problemet        10    7      10   all
+9          må         9    9       8   all
+10      prøve         8   10       8   all
+
+Keyword-in-context with 183 matches.                                                                                                                                           
+   [reidar-s1.txt, 10]                                 roy sa en av de |      problemløsing       | og utforsking metode og algoritme      
+   [reidar-s1.txt, 96]                           det altså det står om |      problemløsning      | og utforsking og likevel står          
+  [reidar-s1.txt, 390]                    tatt utgangspunkt i noen små |    problemstillinger     | og gjort det litt i                    
+  [reidar-s1.txt, 571]                          gå inn i et matematisk |         problem          | sammen for å få liksom                 
+  [reidar-s1.txt, 626]                          det egentlig å møte et |         problem          | hvordan er det vi tenker               
+  [reidar-s1.txt, 826]                         av dere kjenner til det |        problemet         | som vi skal se på                      
+  [reidar-s1.txt, 954]                      starte med å presentere et |         problem          | og jeg må bare minne                   
+  [reidar-s1.txt, 975]                             skal gå inn i dette |         problemt         | og jobbe med dette problemet           
+  [reidar-s1.txt, 980]                     problemt og jobbe med dette |        problemet         | og da må vi prøve                      
+ [reidar-s1.txt, 1062]                             prøve å ha fokus på |        problemet         | i første omgang så hvis                
+ [reidar-s1.txt, 1087]                       jeg skal jeg skriver ikke |        problemet         | opp på tavla men jeg                   
+ [reidar-s1.txt, 1117]                        om hva er egentlig dette |        problemet         | hva handler det om og                  
+ [reidar-s1.txt, 1123]                           hva handler det om og |        problemet         | det lyder som følger hvis              
+ [reidar-s1.txt, 1200]                     du hvordan forstår du dette |        problemet         | hva er det egentlig dette              
+ [reidar-s1.txt, 1217]                      er altså ikke løsningen på |        problemet         | i det hele tatt men                    
+ [reidar-s1.txt, 1225]                            hele tatt men hva er |        problemet         | hva er greia her utveksle              
+ [reidar-s1.txt, 1254]                          hvis du har jobbet med |        problemet         | før og er helt sikker                  
+ [reidar-s1.txt, 1286]                              er det bare hva er |        problemet         | hva er greia her det                   
+ [reidar-s1.txt, 1312]                   i fellesskap hva var egentlig |        problemet         | her er det noen som                    
+ [reidar-s1.txt, 1328]                          egne ord hva går dette |        problemet         | egentlig ut på uten å                  
+ [reidar-s1.txt, 1349]                      snakke om hva var egentlig |        problemet         | er det noen som vil                    
+ [reidar-s1.txt, 1360]                   gjenfortelle med egne ord hva |        problemet         | er så det du spør                      
+ [reidar-s1.txt, 1385]                                sa du spør om er |        problemet         | her at vi skal finne                   
+ [reidar-s1.txt, 1516]                            åtte pluss ni ja for |        problemet         | sier bare summer av påfølgende         
+ [reidar-s1.txt, 1543]                              er det noe annet i |        problemet         | som vi burde snakket om                
+ [reidar-s1.txt, 1668]                       bare for å avgrense dette |        problemet         | litt ellers så blir det                
+ [reidar-s1.txt, 1692]                       at foreløpig så tolker vi |        problemet         | som at det er snakk                    
+ [reidar-s1.txt, 1829]                            vil få det er liksom |        problemet         | ja ja for eksempel så                  
+ [reidar-s1.txt, 1848]                         for en avgrenset del av |        problemet         | ikke sant så hvis vi                   
+ [reidar-s1.txt, 1927]                            få det er liksom det |        problemet         | handler om ikke sant nei               
+ [reidar-s1.txt, 1953]                      forstå hva det egentlig er |        problemet         | handler om det handler om              
+ [reidar-s1.txt, 2004]                            det er liksom det er |        problemet         | ikke sant så allerede nå               
+ [reidar-s1.txt, 2017]                            sett at det å forstå |        problemet         | det som vel raymond også               
+ [reidar-s1.txt, 2036]                      liksom hva er det egentlig |        problemet         | er er det noe annet                    
+ [reidar-s1.txt, 2044]                         det noe annet ved selve |        problemet         | som formuleringen av problemet som     
+ [reidar-s1.txt, 2048]            selve problemet som formuleringen av |        problemet         | som vi trenger å avklare               
+ [reidar-s1.txt, 2067]                felles forståelse av hva faktisk |        problemet         | spør etter jeg vet ikke                
+ [reidar-s1.txt, 2087]                              tenker du på det i |   problemformuleringen   | som sier at vi aldri                   
+ [reidar-s1.txt, 2097]                             aldri vil få ja for |        problemet         | var altså se på summer                 
+ [reidar-s1.txt, 2115]                             aldri få mhm det er |        problemet         | det kunne vært motsatt ja              
+ [reidar-s1.txt, 2225]                              vi da enige om hva |        problemet         | er med de forutsetningene okei         
+ [reidar-s1.txt, 2253]                          er usikre på med selve |        problemet         | men det neste jeg vil                  
+ [reidar-s1.txt, 2284]                           at jeg har skjønt hva |        problemet         | er men hva i all                       
+ [reidar-s1.txt, 2303]                           finne ut noe om dette |        problemet         | hvordan kan jeg gå fram                
+ [reidar-s1.txt, 2353]                      kan jeg tilnærme meg dette |        problemet         | litt individuell tenketid jeg gir      
+ [reidar-s1.txt, 2410]                             kan gå løs på dette |        problemet         | ikke nødvendigvis noen løsninger helt  
+ [reidar-s1.txt, 2433]                       begynne å jobbe med dette |        problemet         | skal vi ta og trekke                   
+ [reidar-s1.txt, 2503]                         om hvordan de skal løse |        problemet         | er det en av dere                      
+ [reidar-s1.txt, 2637]                       vi faktisk har skjønt hva |        problemet         | er for det kan ofte                    
+ [reidar-s1.txt, 2670]             løsningen hvis du virkelig skjønner |        problemet         | så har du janne lyst                   
+ [reidar-s1.txt, 2700]                      vi må øyeblikk sette dette |        problemet         | på pause og jeg understreker           
+ [reidar-s1.txt, 2871]                       vi definerer tall i dette |        problemet         | som positive heltall vi kan            
+ [reidar-s1.txt, 3093]                          si før vi setter dette |        problemet         | på pause for i dag                     
+ [reidar-s1.txt, 3131]                         og knuge litt mot dette |        problemet         | og vær helt ærlige dere                
+ [reidar-s1.txt, 3581]                     gjerne jobbe videre med det |        problemet         | vi begynte på nå det                   
+ [reidar-s1.txt, 3615]                            nesten i mål med det |        problemet         | vi hadde satt i denne                  
+ [reidar-s1.txt, 3633]                             vi la til et ekstra |         problem          | men det er fritt fram                  
+ [reidar-s1.txt, 3772]                        dere ikke har løst begge |        problemene        | hehe det er ikke det                   
+   [reidar-s2.txt, 98]                             å jobbe litt med et |         problem          | med summer av påfølgende tall          
+  [reidar-s2.txt, 126]                              ga vi dere et nytt |         problem          | å jobbe med og bare                    
+  [reidar-s2.txt, 169]                        med å møte et matematisk |         problem          | sånn som elevene opplever det          
+  [reidar-s2.txt, 225]          fra den førstehåndserfaringen selv med |        problemene        | til å begynne å prøve                  
+  [reidar-s2.txt, 357]                          omgang i alle fall det |        problemet         | som vi jobbet med sist                 
+  [reidar-s2.txt, 425]                       til eventuelt å gjøre med |        problemene        | vi snakket om siden sist               
+  [reidar-s2.txt, 647]                           oppleve det å møte et |         problem          | de ikke aner hvordan de                
+  [reidar-s2.txt, 891]                               om å jobbe med et |         problem          | så vet vi at det                       
+ [reidar-s2.txt, 1025]                          vi begynte å jobbe med |        problemet         | du gjorde deg sikkert litt             
+ [reidar-s2.txt, 1547]                                eh det var jo et |         problem          | som denne franske matematikeren pierre 
+ [reidar-s2.txt, 1661]                            med fokus på det ene |        problemet         | stanget veggen stanget veggen stanget  
+ [reidar-s2.txt, 1959]           hvorfor var hvorfor var sirkelfiguren |       problematisk       | for oss ja hvorfor mm                  
+ [reidar-s2.txt, 2572]                              må da må vi kjenne |        problemene        | og liksom matematikken i det           
+ [reidar-s2.txt, 2664]                    hvordan en har inngangen til |        problemer         | at en noen ganger starter              
+ [reidar-s2.txt, 2809]                                ja ja mm mm noen |        problemer         | er kanskje litt for omfattende         
+ [reidar-s2.txt, 2915]                          har vi jobbet litt med |         problem          | selv vi har snakket litt               
+ [reidar-s2.txt, 2922]                          vi har snakket litt om | problemløsningsprosessen | og så videre og så                     
+ [reidar-s2.txt, 3051]                       til å engasjere elevene i | problemløsningsoppgaver  | og diskusjoner og sånn utforskning     
+ [reidar-s2.txt, 3125]                        at de oppgavene eller de |        problemene        | vi har diskutert nå er                 
+ [reidar-s2.txt, 3381]                        helt sånn men det første |        problemet         | vi diskuterte sist gang det            
+ [reidar-s2.txt, 4072]                              er et av de første |        problemene        | som står i boka omtrent                
+ [reidar-s2.txt, 4348]                     vi skal presentere et slikt |         problem          | eller en sånn oppgave hva              
+ [reidar-s2.txt, 4751]                           at kunne vært en type |         problem          | i hvert fall som kunne                 
+ [reidar-s2.txt, 4774]                   startet med at vi presenterte |        problemet         | og så lot elevene diskutere            
+ [reidar-s2.txt, 6003]                     en som lærer presentere det |        problemet         | på en best mulig måte                  
+ [reidar-s2.txt, 6133]                        vi da presentere et sånt |         problem          | og hvordan skal vi på                  
+ [reidar-s2.txt, 6966]                         ikke sant som er veldig |     problemorientert     | og som ikke går sånn                   
+ [reidar-s2.txt, 7154]                                 i dag og så det |        problemet         | som vi jo har er                       
+ [reidar-s2.txt, 7166]                  første som han presenterer som |         problem          | her da så hvis dere                    
+   [reidar-s3.txt, 29]                            prøve oss på et lite |         problem          | som eg prøvde ut på                    
+   [reidar-s3.txt, 69]                        dere skulle prøve ut det |        problemet         | i en eller annet tilpasset             
+  [reidar-s3.txt, 621]                        men litt tilbake til det |        problemet         | til den oppgaven som vi                
+  [reidar-s3.txt, 743]                  litt høyt om den underliggende |    problemstillingen     | dere opplever fra læreplanen i         
+  [reidar-s3.txt, 767]                         er inne på et vesentlig |         problem          | og jeg tror at det                     
+  [reidar-s3.txt, 859]                veldig opptatt av utforskning og |      problemløsning      | og egentlig helt i den                 
+  [reidar-s3.txt, 983]                  heller at hvor ligger egentlig |        problemet         | skal vi tilpasses oss det              
+ [reidar-s3.txt, 1049]                         det ene handler litt om |        problemet         | og om hva skal jeg                     
+ [reidar-s3.txt, 1059]                        jeg si om egenskaper med |        problemet         | hvor godt problemet var i              
+ [reidar-s3.txt, 1062]              egenskaper med problemet hvor godt |        problemet         | var i forhold til det                  
+ [reidar-s3.txt, 1074]                         hadde tenkt og håpet av |        problemet         | det er det ene og                      
+ [reidar-s3.txt, 1961]                  om når dere introduserte dette |        problemet         | så skjønner jeg roy at                 
+ [reidar-s3.txt, 2456]                         nå gjerne velge et nytt |        problemet         | siden en del iallfall anser            
+ [reidar-s3.txt, 2466]                     anser som ferdige med dette |        problemet         | så kan dere arbeide videre             
+ [reidar-s3.txt, 2481]                             ene å finne et nytt |         problem          | vi kan prøve ut å                      
+ [reidar-s3.txt, 4735]                             jeg ikke det er noe |         problem          | med å få elevene til                   
+   [reidar-s4.txt, 90]                            til rette for en mer |     problemorientert     | matematikkundervisning der vi har fokus
+  [reidar-s4.txt, 344]                    hvordan kan vi presentere et |         problem          | på en god måte så                      
+  [reidar-s4.txt, 378]                             å bryne oss litt på |        problemer         | for å kjenne litt på                   
+  [reidar-s4.txt, 411]                         sånn cirka i oktober et |         problem          | vi hadde jobbet med sammen             
+  [reidar-s4.txt, 531]                           å legge til rette for |         problem          | og prøve å observere hvordan           
+  [reidar-s4.txt, 539]               å observere hvordan elevene møter |         problem          | og så er tanken at                     
+  [reidar-s4.txt, 556]                          en mer diskusjon av et |         problem          | i hele klassen liksom da               
+  [reidar-s4.txt, 848]                           tilbake på noen av de |        problemene        | vi har arbeidet med her                
+ [reidar-s4.txt, 1180]                        er det noen spørsmål til |        problemet         | forresten var problemet vi skal        
+ [reidar-s4.txt, 1183]            spørsmål til problemet forresten var |        problemet         | vi skal ikke finne hvor                
+ [reidar-s4.txt, 1707]                              vi prøvd oss på et |         problem          | og det neste er liksom                 
+ [reidar-s4.txt, 1720]                               på om dette er et |         problem          | direkte eller et type problem          
+ [reidar-s4.txt, 1725]                   problem direkte eller et type |         problem          | som vi kunne prøvd ut                  
+ [reidar-s4.txt, 1864]                 hvordan kan vi presentere dette |        problemet         | på en måte som fenger                  
+ [reidar-s4.txt, 1940]               kunne tidligere har vi presentert |        problemet         | for elevene så har de                  
+ [reidar-s4.txt, 2173]                           vi vil prøve ut dette |        problemet         | på en måte så må                       
+ [reidar-s4.txt, 2225]                    ut hvordan vi kan presentere |        problemet         | slik at elevene blir fenget            
+ [reidar-s4.txt, 2356]                 spørsmålet når skal vi avslutte |        problemet         | når skal vi si at                      
+ [reidar-s4.txt, 2437]                             vi på en måte lande |        problemet         | og på en eller annen                   
+ [reidar-s4.txt, 2757]                          å justere det er ingen |         problem          | å endre på det jaja                    
+  [reidar-s5.txt, 229]                          du har ikke sett dette |        problemet         | engang eller har du det                
+  [reidar-s5.txt, 256]                             her nå han har sett |        problemet         | ja det er bra han                      
+ [reidar-s5.txt, 1129]                       vi egentlig ferdig med et |         problem          | på en måte og jeg                      
+ [reidar-s5.txt, 1450]                       når du skal presentere et |         problem          | hvordan skal du motivere for           
+ [reidar-s5.txt, 1482]                      men bare som et matematisk |         problem          | vel egentlig gjorde du ikke            
+ [reidar-s5.txt, 1527]                    elever som ikke hadde skjønt |        problemet         | i det hele tatt og                     
+ [reidar-s5.txt, 1569]                       oss at elevene har skjønt |        problemet         | og så begynte jeg også                 
+ [reidar-s5.txt, 1584]                           viktig er det at alle |        problemene        | har skjønt problemet eh elevene        
+ [reidar-s5.txt, 1587]                   at alle problemene har skjønt |        problemet         | eh elevene har skjønt problemet        
+ [reidar-s5.txt, 1592]                 problemet eh elevene har skjønt |        problemet         | før vi begynner eh hvor                
+ [reidar-s5.txt, 1632]                   absolutt alle har skjønt hele |        problemet         | heller men men samtidig så             
+ [reidar-s5.txt, 1660]                              mm mm vi må forstå |        problemet         | mm ja ja det er                        
+ [reidar-s5.txt, 1702]                           da har de ikke skjønt |        problemet         | på en måte og og                       
+ [reidar-s5.txt, 1720]                             på det med at altså |        problemet         | er jo ikke at svaret                   
+ [reidar-s5.txt, 1730]                   svaret blir altså poenget med |        problemet         | er jo ikke at svaret                   
+ [reidar-s5.txt, 1750]                             del av det å forstå |        problemet         | å etablere at jo svaret                
+ [reidar-s5.txt, 2344]                              som er dette er et |         problem          | som vi trenger å utforske              
+ [reidar-s5.txt, 2379]                               er et av de store |        problemene        | da det med hvordan hvordan             
+ [reidar-s5.txt, 4157]                     en konkret oppgave eller et |         problem          | dere har prøvd ut og                   
+ [reidar-s5.txt, 4279]                            et et litt sånt rikt |         problem          | som en faktisk kan utforske            
+  [reidar-s6.txt, 465]                            fjor med å jobbe med |        problemer         | og sånt at det er                      
+  [reidar-s6.txt, 483]                           en kan ikke bare løse |        problemer         | og jobbe med dyp forståelse            
+  [reidar-s6.txt, 982]                              gå inn i litt sånn | problemløsningsprosesser | selv vi ble enige om                   
+ [reidar-s6.txt, 1019]                              på en del av disse |        problemene        | så la vi litt vekt                     
+ [reidar-s6.txt, 1030]                           på at hvis en kjenner |        problemet         | fra før så er det                      
+ [reidar-s6.txt, 1082]                                og gå litt inn i | problemløsningsprosesser | hver for oss og i                      
+ [reidar-s6.txt, 1216]                          viktig det er å forstå |        problemet         | vi hadde jo noen eksempler             
+ [reidar-s6.txt, 1230]                       vi trodde vi hadde skjønt |        problemet         | og så hadde vi ikke                    
+ [reidar-s6.txt, 1281]                     plutselig fikk oss videre i | problemløsningsprosessen | og de parallellene det har             
+ [reidar-s6.txt, 1303]                             prøvde vi ut en del |        problemer         | med vi hadde ganske mye                
+ [reidar-s6.txt, 1318]                    det som kjennetegner et godt |         problem          | og en god oppgave som                  
+ [reidar-s6.txt, 1603]          konkurranse lek-preget litt annen type |         problem          | som mange av elevene opplevde          
+ [reidar-s6.txt, 1636]                           som et eksempel på et |         problem          | eller en aktivitet som har             
+ [reidar-s6.txt, 1685]                           om hvordan det var et |         problem          | som elevene fikk følelsen av           
+ [reidar-s6.txt, 1723]                           vi snakket om med det |        problemet         | at det kan være en                     
+ [reidar-s6.txt, 1733]                       en viktig egenskap med et |         problem          | som vi jobber med så                   
+ [reidar-s6.txt, 1766]                      legge fram og presenter et |         problem          | for elevene hva må vi                  
+ [reidar-s6.txt, 1798]                    at alle elevene har forstått |        problemet         | før en begynner med det                
+ [reidar-s6.txt, 1865]                       jeg i forbindelse med det |        problemet         | en del om det med                      
+ [reidar-s6.txt, 1918]                      også i forbindelse med det |        problemet         | og så det var vel                      
+ [reidar-s6.txt, 2086]                               det med hva er et |         problem          | hva er et godt problem                 
+ [reidar-s6.txt, 2091]                          problem hva er et godt |         problem          | hva vil det si å                       
+ [reidar-s6.txt, 2100]                                   si å stå i en |  problemløsningsprosess  | og vi begynte liksom med               
+ [reidar-s6.txt, 2124]                       opp en aktivitet rundt et |         problem          | og så var planen at                    
+ [reidar-s6.txt, 2160] elevdialoger og helklassediskusjoner omkring et |         problem          | men så var det tida                    
+ [reidar-s6.txt, 2283]                           å finne og bruke gode |        problemer         | og sånt det er noe                     
+ [reidar-s6.txt, 2543]                             er veldig på det at |        problemer         | skal du presentere muntlig hvorfor     
+ [reidar-s6.txt, 2574]                       enige om hva var egentlig |        problemet         | og da må de snakke                     
+ [reidar-s6.txt, 2632]                       med dysleksi og den typen |      problematikker      | men jeg tenker at det                  
+ [reidar-s6.txt, 2649]                    litt bevisst da å presentere |        problemer         | på bruke det med å                     
+ [reidar-s6.txt, 2677]                             om det med å forstå |        problemet         | og tenker at liksom du                 
+ [reidar-s6.txt, 2684]                 tenker at liksom du presenterer |        problemet         | og så starter du kanskje               
+ [reidar-s6.txt, 2705]                       siden av hva var egentlig |        problemet         | her og så kan det                      
+ [reidar-s6.txt, 3074]                    en måte kjennetegner et godt |         problem          | da det var noe vi                      
+ [reidar-s6.txt, 3101]                         det med å presentere et |         problem          | og så begynte vi litt                  
+ [reidar-s6.txt, 4412]                          med å fokusere på gode |        problemer         | til å gå inn liksom                    
+ [reidar-s6.txt, 4758]                           å lytte og forstå hva |        problemet         | var at det faktisk er                  
+ [reidar-s6.txt, 5523]                      om en type aktivitet eller |         problem          | som vi skal ha som                     
+ [reidar-s6.txt, 5913]                            bli enige om en type |         problem          | eller aktivitet som vi kan             
+ [reidar-s6.txt, 6122]                         i arbeidet med den type |         problem          | så det kan godt være
+#+end_example
+
+****** Reidar, frequencies including stopwords
+#+begin_src R :session :results output
+reidar_problem <- kwic(reidar_tokens, pattern =  "problem*", window = 5)
+
+reidar_problem_corpus <- corpus(reidar_problem)
+reidar_problem_tokens <- tokens(reidar_problem_corpus, what = "word")
+reidar_problem_dfm <- dfm(reidar_problem_tokens)
+features_reidar_problem <- textstat_frequency(reidar_problem_dfm)
+head(features_reidar_problem, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1      det       101    1      96   all
+2       vi        73    2      72   all
+3       og        63    3      58   all
+4       er        62    4      58   all
+5      med        51    5      50   all
+6       et        45    6      43   all
+7        å        44    7      43   all
+8      som        44    7      41   all
+9       på        38    9      38   all
+10      en        37   10      37   all
+#+end_example
+
+****** Roy
+#+begin_src R :session :results output
+roy_problem <- kwic(roy_tokens, pattern =  "problem*", window = 5)
+
+roy_problem_corpus <- corpus(roy_problem)
+roy_problem_tokens <- tokens(roy_problem_corpus, what = "word")
+roy_problem_tokens <- tokens_select(roy_problem_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+roy_problem_dfm <- dfm(roy_problem_tokens)
+features_roy_problem <- textstat_frequency(roy_problem_dfm)
+head(features_roy_problem, 10)
+
+cat("\n")
+roy_problem
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1     løse         4    1       4   all
+2   metode         3    2       3   all
+3    store         3    2       3   all
+4     tror         3    2       3   all
+5       to         3    2       3   all
+6  kjenner         3    2       3   all
+7       jo         2    7       2   all
+8     måte         2    7       2   all
+9     litt         2    7       2   all
+10   altså         2    7       2   all
+
+Keyword-in-context with 37 matches.                                                                                                       
+   [roy-s1.txt, 21]            ikke hva du vil men |  problemløsning  | ja utvikle en metode for       
+   [roy-s1.txt, 30]           metode for å løse et |     problem      | de ikke kjenner fra før        
+   [roy-s1.txt, 48]        at hvis de ikke forstår |    problemet     | så klarer de nå i              
+   [roy-s1.txt, 88]           metode for å løse et |     problem      | de ikke kjenner hvordan i      
+  [roy-s1.txt, 116]           for da knytter du jo |    problemet     | til noe de kjenner ja          
+  [roy-s1.txt, 184]           at jeg sier dette er |    problemet     | så må de snakke to             
+  [roy-s1.txt, 308]      at det var en femteklasse |    problemet     | mitt var at jeg begynte        
+  [roy-s1.txt, 506]         sa men jeg hadde store |    problemer     | med å forstå den læreren       
+  [roy-s1.txt, 556]             med det før men er |    problemet     | det med påfølgende hva det     
+  [roy-s1.txt, 683]       mister jeg rett og slett |    problemet     | altså det er antakeligvis fordi
+  [roy-s1.txt, 701]  etter løsningen og ikke etter |    problemet     | at en på en måte               
+  [roy-s1.txt, 711]      måte tror en har forstått |    problemet     | og så nei det var              
+  [roy-s1.txt, 729]          det er akkurat som at |    problemet     | glipper men det tror jeg       
+  [roy-s2.txt, 120]               dem om ja hva er |    problemet     | her så var det et              
+  [roy-s2.txt, 165]                å se hva som er |    problemet     | eh ja så den jeg               
+  [roy-s3.txt, 419]       gjøre det ferdig med det |    problemet     | er at de husker det            
+  [roy-s3.txt, 450]              det er de som har |     problem      | med å lære seg en              
+ [roy-s3.txt, 1360]    for dette de er arbeidsfolk |    problemet     | er at de er født               
+  [roy-s4.txt, 252]           en og tjue det store |    problemet     | var jo at jeg ikke             
+  [roy-s4.txt, 390]         tilbake åtte fem to ja |    problemet     | er at det er så                
+  [roy-s4.txt, 858]      de kan det automatisk mmm |    problemet     | er da når du får               
+  [roy-s4.txt, 947]               ja men da er det |    problemet     | at de ikke skal bruke          
+ [roy-s4.txt, 1076]       det har gjerne vært litt |    problemet     | når vi har holdt på            
+ [roy-s4.txt, 1175]              det er den som er | problemløsningen | det er den oppgaven som        
+ [roy-s4.txt, 1323]             om at du gjør jaja |    problemet     | med den gamle algoritmen er    
+  [roy-s5.txt, 400]               om nå det er det |    problemet     | som vi lever i fordi           
+  [roy-s5.txt, 675]           når vi kommer med et |     problem      | så da er de så                 
+  [roy-s6.txt, 137]        sant altså ja hva disse |    problemene    | blir veldig store da for       
+  [roy-s6.txt, 502]    kalkulator da i forhold til | problemløsnings  | jeg har mye kjørt med          
+  [roy-s6.txt, 573]     algoritmen nå eller er det |    problemene    | ja ja med noen så              
+  [roy-s6.txt, 953]            en for å kunne løse |     problem      | så må en kunne holde           
+ [roy-s6.txt, 1016]          bruker mye mer tid på |    problemene    | og på alt dette her            
+ [roy-s6.txt, 1253]         finne en løsning på et |     problem      | og holde de to litt            
+ [roy-s6.txt, 1663]         tror nok at jeg forsto |    problemet     | også men at når du             
+ [roy-s6.txt, 1746] det egentlig uansett hva slags |     problem      | du skal løse men for           
+ [roy-s6.txt, 1853]         så dukker det opp noen |    problemer     | underveis men det er liksom    
+ [roy-s6.txt, 1917]      har gjort men samtidig så |    problemet     | når de da skifter plass
+#+end_example
+
+****** Roy, frequencies including stopwords
+#+begin_src R :session :results output
+roy_problem <- kwic(roy_tokens, pattern =  "problem*", window = 5)
+
+roy_problem_corpus <- corpus(roy_problem)
+roy_problem_tokens <- tokens(roy_problem_corpus, what = "word")
+roy_problem_dfm <- dfm(roy_problem_tokens)
+features_roy_problem <- textstat_frequency(roy_problem_dfm)
+head(features_roy_problem, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1      det        26    1      23   all
+2       er        23    2      20   all
+3       de        15    3      15   all
+4       at        14    4      14   all
+5       så        12    5      11   all
+6       en        10    6       9   all
+7      men         9    7       9   all
+8      jeg         9    7       9   all
+9      med         9    7       9   all
+10      ja         9    7       8   all
+#+end_example
+
+****** Ted
+#+begin_src R :session :results output
+ted_problem <- kwic(ted_tokens, pattern =  "problem*", window = 5)
+
+ted_problem_corpus <- corpus(ted_problem)
+ted_problem_tokens <- tokens(ted_problem_corpus, what = "word")
+ted_problem_tokens <- tokens_select(ted_problem_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+ted_problem_dfm <- dfm(ted_problem_tokens)
+features_ted_problem <- textstat_frequency(ted_problem_dfm)
+head(features_ted_problem, 10)
+
+cat("\n")
+ted_problem
+#+end_src
+
+#+RESULTS:
+#+begin_example
+    feature frequency rank docfreq group
+1        jo         6    1       5   all
+2     finne         4    2       4   all
+3      måte         3    3       3   all
+4      løse         3    3       3   all
+5     altså         3    3       3   all
+6       gir         3    3       3   all
+7     jobbe         3    3       3   all
+8   forstår         2    8       2   all
+9  uhørbart         2    8       2   all
+10     okey         2    8       2   all
+
+Keyword-in-context with 37 matches.                                                                                                               
+  [ted-s1.txt, 672]                        jo på en måte et |     problem     | som de kjenner akkurat det     
+  [ted-s1.txt, 725]              til hvordan de skulle løse |    problemet    | for de fikk det i              
+  [ted-s1.txt, 987]                         i å finne ut av |    problemet    | eller hvordan er det lurest    
+ [ted-s1.txt, 1070]                 altså jeg kan stille et |     problem     | ut i klassen og så             
+ [ted-s1.txt, 1288]               du bruker hvis du forstår |    problemet    | hvis du forstår hva er         
+ [ted-s1.txt, 1799]                     de med altså det er |    problemet    | å finne matematikken inni disse
+ [ted-s1.txt, 1933]                      vi tenkte på er er |    problemet    | at vi på en måte               
+ [ted-s1.txt, 1975]                       er det det som er |    problemet    | eller eller er det løsningen   
+  [ted-s2.txt, 991]               dumme at de faktisk løser |    problemet    | til slutt fordi at det         
+ [ted-s2.txt, 1296]              ikke er interessant det er |    problemet    | hva tenker vi hvordan kan      
+ [ted-s2.txt, 2278] du gir syvendeklassingene et matematisk |     problem     | i en eller annen sammenheng    
+ [ted-s2.txt, 2525]           blitt presentert for et slikt |     problem     | og de skal prøve å             
+ [ted-s2.txt, 2655]                   trygg på det så ingen |     problem     | men ja men han hadde           
+ [ted-s2.txt, 3187]                 med hvis de ikke finner |    problemet    | som du sier roy så             
+ [ted-s2.txt, 3223]                   si sliter med å finne |    problemet    | og mange gir opp veldig        
+ [ted-s2.txt, 3442]                   og så ah noe uhørbart |     problem     | hvordan skal vi gjøre det      
+  [ted-s3.txt, 418]                     okey da er komma et |     problem     | da må vi jobbe med             
+ [ted-s3.txt, 2386]                   tar opp på tavle okey | problematiserer | rundt en oppgave altså svaret  
+ [ted-s3.txt, 2775]                     da kan det bli litt |  problematisk   | så det er litt men             
+ [ted-s3.txt, 3151]               av en forståelse av dette |    problemet    | sånn at på en måte             
+  [ted-s5.txt, 324]               her randolph han har sett |    problemet    | men men nå var det             
+  [ted-s5.txt, 507]                 ferdige med det var det |    problemet    | og så noe uhørbart men         
+  [ted-s5.txt, 539]       desidert flest løsninger på dette |    problemet    | mener de for da hadde          
+ [ted-s5.txt, 1137]                         og da får de et |     problem     | neste gang når det ikke        
+ [ted-s5.txt, 1698]                        det så ja vi kan | problematisere  | det men men det er             
+ [ted-s5.txt, 2211]             i hvilken kontekst er dette |    problemet    | pakket inn slik at vi          
+ [ted-s5.txt, 2603]             som han målbar løsningen på |    problemet    | er jo er jo veldig             
+ [ted-s5.txt, 3458]                     ja ja det var ingen |     problem     | det var ingen problem men      
+ [ted-s5.txt, 3462]             ingen problem det var ingen |     problem     | men hva er hva er              
+  [ted-s6.txt, 151]                      på å tenke og løse |    problemer    | men vi så jo det               
+  [ted-s6.txt, 723]                       det er jo ikke et |     problem     | det er bare det at             
+  [ted-s6.txt, 994]                       men gir du han et |     problem     | så går han helt i              
+ [ted-s6.txt, 1064]                      der å jobbe med et |     problem     | og finne ut av ja              
+ [ted-s6.txt, 1438]                       når han da får et |     problem     | i matte muntlig så er          
+ [ted-s6.txt, 1793]                 som du kan håndtere for |    problemet    | er ikke så vanskelig problemet 
+ [ted-s6.txt, 1798]          problemet er ikke så vanskelig |    problemet    | er jo relativt enkelt men      
+ [ted-s6.txt, 2940]            elevene hvordan skal vi løse |    problemet    | det er lettere å jobbe
+#+end_example
+
+****** Ted, frequencies including stopwords
+#+begin_src R :session :results output
+ted_problem <- kwic(ted_tokens, pattern =  "problem*", window = 5)
+
+ted_problem_corpus <- corpus(ted_problem)
+ted_problem_tokens <- tokens(ted_problem_corpus, what = "word")
+ted_problem_dfm <- dfm(ted_problem_tokens)
+features_ted_problem <- textstat_frequency(ted_problem_dfm)
+head(features_ted_problem, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1      det        28    1      24   all
+2       er        25    2      20   all
+3      men        13    3      10   all
+4       så        12    4      12   all
+5       et        10    5      10   all
+6       på         9    6       9   all
+7       de         9    6       9   all
+8       vi         9    6       9   all
+9       og         8    9       8   all
+10       i         7   10       7   all
+#+end_example
+
+***** KWIC-analysis around the word "student"
+****** Reidar
+#+begin_src R :session :results output
+reidar_student <- kwic(reidar_tokens, pattern =  "elev*", window = 5)
+
+reidar_student_corpus <- corpus(reidar_student)
+reidar_student_tokens <- tokens(reidar_student_corpus, what = "word")
+reidar_student_tokens <- tokens_select(reidar_student_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+reidar_student_dfm <- dfm(reidar_student_tokens)
+features_reidar_student <- textstat_frequency(reidar_student_dfm)
+head(features_reidar_student, 10)
+
+cat("\n")
+reidar_student
+#+end_src
+
+#+RESULTS:
+#+begin_example
+       feature frequency rank docfreq group
+1           få        24    1      23   all
+2         litt        23    2      22   all
+3        ulike        18    3      17   all
+4           gi        17    4      17   all
+5        andre        15    5      15   all
+6  opplevelsen        10    6      10   all
+7           jo         9    7       9   all
+8         måte         9    7       9   all
+9          nye         9    7       6   all
+10     kanskje         9    7       9   all
+
+Keyword-in-context with 212 matches.                                                                                                                          
+  [reidar-s1.txt, 213]               merke til at det var |      elever      | som helt i samtalen seg                    
+  [reidar-s1.txt, 250]              til av seg selv blant |     elevene      | det er noe læreren må                      
+  [reidar-s1.txt, 617]            og oppleve det litt fra | elevperspektivet | også hvordan er det egentlig               
+  [reidar-s1.txt, 994]        sånn innta nesten litt sånn |  elevperspektiv  | for jeg har erfart det                     
+ [reidar-s1.txt, 1034]              sånn og sånn med mine |      elever      | og hvis jeg skulle gjort                   
+ [reidar-s1.txt, 3233]          er jo mye disse følelsene |     elevene      | ofte sitter med de skjønner                
+ [reidar-s1.txt, 3286]               er jo dette ting som |      elever      | hele veien opplever og som                 
+ [reidar-s1.txt, 3383]              som helst måte at med |      elever      | at det er så enkelt                        
+ [reidar-s1.txt, 3422]      disiplinerte enn det mange av |     elevene      | er så det tenker jeg                       
+ [reidar-s1.txt, 3446]     fornuftige å etablere med våre |      elever      | og hvordan skal vi gjøre                   
+  [reidar-s2.txt, 172]     et matematisk problem sånn som |     elevene      | opplever det veldig ofte men               
+  [reidar-s2.txt, 234]                å prøve ut ting med |     elevene      | vi snakket om det sist                     
+  [reidar-s2.txt, 310]                på plass og at alle |     elevene      | er med på det det                          
+  [reidar-s2.txt, 640]           å prøve å forstå hvordan |     elevene      | kan oppleve det å møte                     
+  [reidar-s2.txt, 686]           krevende å støte på noen |      elever      | eller oppgaver som du ikke                 
+ [reidar-s2.txt, 1242]           om de holdningene vi har |     elevene      | har til hva betyr det                      
+ [reidar-s2.txt, 1335]                er at alt for mange |      elever      | og kanskje også lærere da                  
+ [reidar-s2.txt, 1399]                 og lage rom for at |     elevene      | kan oppleve at nei faktisk                 
+ [reidar-s2.txt, 1824]       eksempler i matematikk på at |      elever      | kan ha kommet frem til                     
+ [reidar-s2.txt, 2477]                   det at vi kan gi |     elevene      | og litt eierskap til de                    
+ [reidar-s2.txt, 2516]                 at hvis det var en |       elev       | som sliter i anførselstegn som             
+ [reidar-s2.txt, 2537]              fall sørge for at den |      eleven      | får oppleve opplevelsen av at              
+ [reidar-s2.txt, 2600]               det kan godt være en |       elev       | som opplever at han eller                  
+ [reidar-s2.txt, 2630]           det som kan hjelpe denne |      eleven      | å ta et steg videre                        
+ [reidar-s2.txt, 2685]            mens du andre ganger gi |     elevene      | tid til å tenke litt                       
+ [reidar-s2.txt, 2737]              til rette for en type |      elever      | mm mm det er helt                          
+ [reidar-s2.txt, 2961]               noe av dette her med |     elevene      | våre på lage oss noen                      
+ [reidar-s2.txt, 3049]              få få til å engasjere |     elevene      | i problemløsningsoppgaver og diskusjoner og
+ [reidar-s2.txt, 3219]                liten sånn for å få |     elevene      | på liksom for å få                         
+ [reidar-s2.txt, 3921]             uheldige og da at noen |      elever      | hadde foreslått ja eller noe               
+ [reidar-s2.txt, 4013]           være en type oppgave som |     elevene      | skal komme i hvert fall                    
+ [reidar-s2.txt, 4225]      at den liksom opplevelsen når |     elevene      | ser hva som står på                        
+ [reidar-s2.txt, 4517]                 på en sånn måte at |     elevene      | tror det er tilfeldig i                    
+ [reidar-s2.txt, 4619]                   en bare få en av |     elevene      | til å slå det på                           
+ [reidar-s2.txt, 4778]    presenterte problemet og så lot |     elevene      | diskutere det seg imellom ikke             
+ [reidar-s2.txt, 4841]        dette går i hvordan starter |     elevene      | i det hele tatt hvordan                    
+ [reidar-s2.txt, 4922]               prøvde det ut og lot |     elevene      | diskutere det at det at                    
+ [reidar-s2.txt, 5008]                greier mm er det en |       elev       | ja ja nei er det                           
+ [reidar-s2.txt, 5067]      bruke anledningen til å sette |     elevene      | i en posisjon så de                        
+ [reidar-s2.txt, 5233]          bevisst velge en eller to |      elever      | som kunne utføre regnestykket på           
+ [reidar-s2.txt, 5256]                 an å tenke litt på |      elever      | som ikke alltid er altså                   
+ [reidar-s2.txt, 5976]               i hvert fall noen av |     elevene      | og så en av de                             
+ [reidar-s2.txt, 6016]        både fange interessen og få |     elevene      | til å snakke sammen etterpå                
+ [reidar-s2.txt, 6074]            noe sånn litt sånn gode | elevdiskusjoner  | eh for for jeg tenker                      
+ [reidar-s2.txt, 6098]                målet her at vi får |     elevene      | til å snakke om matematikken               
+ [reidar-s2.txt, 6341]       måte som fenger og motiverer |     elevene      | og og hvilke hvilke regler                 
+ [reidar-s2.txt, 6519]           ikke jeg tenkt på engang |     elevene      | snakker faktisk sammen utenom timene       
+ [reidar-s2.txt, 6798]        hvordan gikk det hva pratet |     elevene      | om hvordan eh ja ja                        
+  [reidar-s3.txt, 316]                 la dere opp til at |     elevene      | for eksempel kunne diskutere i             
+  [reidar-s3.txt, 489]      det er veldig understreket at |     elevene      | selv skal utvikle sine egne                
+  [reidar-s3.txt, 515]              en måte å forvente at |     elevene      | i løpet av et skoleår                      
+  [reidar-s3.txt, 677]                   for at vi kan ta |     elevenes     | innspill å se hvordan vi                   
+  [reidar-s3.txt, 794]       har noen forventninger om at |     elevene      | skal beherske de grunnleggende regnearter  
+  [reidar-s3.txt, 882]            opplevde at de som fikk |     elevenes     | hennes på ungdomsskolen var litt           
+ [reidar-s3.txt, 1151]           legger veldig vekt på at |     elevene      | skal oppdage sine egne og                  
+ [reidar-s3.txt, 1237]          mye en eventuelt kan lede |     elevene      | inn mot bestemte algoritmer er             
+ [reidar-s3.txt, 1395]             altså kunne vi ha gitt |     elevene      | ulike oppgaver og prøve å                  
+ [reidar-s3.txt, 1577]             svaret var det noen av |     elevene      | selv som plutselig så det                  
+ [reidar-s3.txt, 1698]             krevende for en del av |     elevene      | at det var derfor eller                    
+ [reidar-s3.txt, 1780]          var for klassen eller for |     elevene      | så er det litt bra                         
+ [reidar-s3.txt, 1832]                noe for å få enkelt |     elevene      | til og bli enda mer                        
+ [reidar-s3.txt, 1855]                 sånn som i noen av |   elevgruppene   | som du beskriver kanskje så                
+ [reidar-s3.txt, 2273]             at det er veldig mange |      elever      | som har et litt begrenset                  
+ [reidar-s3.txt, 2315]                å hvordan kan vi få |     elevene      | til å forstå at det                        
+ [reidar-s3.txt, 2519]              vi prøver å skape med |     elevene      | noen regler det kan være                   
+ [reidar-s3.txt, 2691]            er det dere som kjenner |     elevene      | best og dere har kanskje                   
+ [reidar-s3.txt, 2754]              høyt nivå for noen av |     elevene      | muligens det er ikke sikkert               
+ [reidar-s3.txt, 2933]            det litt sånn greie for |     elevene      | at det er litt tilfeldig                   
+ [reidar-s3.txt, 3131]             jo som lærer eller som |       elev       | for den saks skyld når                     
+ [reidar-s3.txt, 3219]                gå så fort fram med |     elevene      | men poenget er at jeg                      
+ [reidar-s3.txt, 3227]                er at jeg tror alle |     elevene      | egentlig kan være med på                   
+ [reidar-s3.txt, 3286]              jeg har gjort den med |      elever      | og sånn en ting at                         
+ [reidar-s3.txt, 3295]                  ting at du kan la |     elevene      | prøve seg fram på gruppene                 
+ [reidar-s3.txt, 3463]        nok gjort denne muntlig med |     elevene      | for hvis du skriver det                    
+ [reidar-s3.txt, 3768]        lærer kan undersøke litt om |     elevene      | har sett systemet eller om                 
+ [reidar-s3.txt, 3838]          det plutselig er det noen |      elever      | som begynner å telle bakover               
+ [reidar-s3.txt, 4166]               ikke gå der med alle |     elevene      | nødvendigvis men det er greit              
+ [reidar-s3.txt, 4238]               lurt hvis du skal la |     elevene      | ha en reell mulighet til                   
+ [reidar-s3.txt, 4300]               med vilje tape og la |     elevene      | selv finne ut av hvis                      
+ [reidar-s3.txt, 4459]                hvis det var en del |      elever      | som ikke klarte å se                       
+ [reidar-s3.txt, 4591]       den anledningen til å spørre |     elevene      | hvordan var dette med partall              
+ [reidar-s3.txt, 4657]          type aktivitet så hvis en |       elev       | tror at han eller hun                      
+ [reidar-s3.txt, 4739]               noe problem med å få |     elevene      | til å være aktive og                       
+ [reidar-s3.txt, 4757]             jeg tror sånn sett vil |     elevene      | snakke sammen men det som                  
+ [reidar-s3.txt, 4778]                  å begynne å se om |     elevene      | har sett et eller annet                    
+ [reidar-s3.txt, 4866]               sett at det var noen |      elever      | som så mønsteret og du                     
+ [reidar-s3.txt, 5035]                å ta opptak av noen |   elevsamtaler   | det er noe vi også                         
+ [reidar-s3.txt, 5075]              høre på noen av disse |  elevsamtalene   | det er ikke sikkert det                    
+ [reidar-s3.txt, 5170]          hadde gjort det med deres |      elever      | og that's it så hadde                      
+ [reidar-s3.txt, 5490]                 om å hente noe fra |     elevene      | men roy tar du ansvar                      
+  [reidar-s4.txt, 207]            i et klasserom med sine |      elever      | og alt som ligger der                      
+  [reidar-s4.txt, 392]           å kjenne litt på hvordan |     elevene      | føler det og snakket litt                  
+  [reidar-s4.txt, 537]       og prøve å observere hvordan |     elevene      | møter problem og så er                     
+  [reidar-s4.txt, 615]          eksempel når dere sier at |     elevene      | tok det ja men det                         
+  [reidar-s4.txt, 743]              litt både oss selv og |     elevene      | våre på hva er matematikk                  
+  [reidar-s4.txt, 760]         være flink i matematikk så |     elevene      | og kan etter hvert forstå                  
+  [reidar-s4.txt, 927]        å synliggjøre det og støtte |     elevene      | litt på det også og                        
+ [reidar-s4.txt, 1381]               å skrive ned det som |     elevene      | har tenkt vi tenker nok                    
+ [reidar-s4.txt, 1411]                 ned på en måte som |     elevene      | kjenner seg igjen i det                    
+ [reidar-s4.txt, 1574]               i stedet for det som |      eleven      | faktisk sa det er også                     
+ [reidar-s4.txt, 1870]              på en måte som fenger |     elevene      | og gjør at de er                           
+ [reidar-s4.txt, 1942]    har vi presentert problemet for |     elevene      | så har de jobbet med                       
+ [reidar-s4.txt, 2029]        alltid kunne vurdere hva en |       elev       | har gjort og forstå det                    
+ [reidar-s4.txt, 2065]         lærer skal forklare hva en |       elev       | har tenkt men du kan                       
+ [reidar-s4.txt, 2073]                  men du kan få den |      eleven      | til å forklare hva han                     
+ [reidar-s4.txt, 2191]       skal presenteres for å fenge |     elevene      | på en best mulig måte                      
+ [reidar-s4.txt, 2228]   kan presentere problemet slik at |     elevene      | blir fenget av det kanskje                 
+ [reidar-s4.txt, 2272]           oppgaven å få fram ulike |  elevstrategier  | eeh da og kunne en                         
+ [reidar-s4.txt, 2301]       velge på ulike måter hvordan |     elevene      | kunne kommet opp og forklart               
+ [reidar-s4.txt, 2320]             prøve å gjengi det hva |     elevene      | har tenkt en kan la                        
+ [reidar-s4.txt, 2412]             vi har fått fram ulike |  elevstrategier  | og det skal være på                        
+  [reidar-s5.txt, 850]                   så var det jo en |       elev       | som fant en litt fiffig                    
+  [reidar-s5.txt, 999]                   en på en måte gi |     elevene      | mest mulig eierskap til matematikken       
+ [reidar-s5.txt, 1170]                  for det var en av |     elevene      | som når de begynte med                     
+ [reidar-s5.txt, 1183]               ganger så var det en |       elev       | som foreslo den har jeg                    
+ [reidar-s5.txt, 1327]                   var det jo en av |     elevene      | som foreslo som en ny                      
+ [reidar-s5.txt, 1522]            sammen så var det mange |      elever      | som ikke hadde skjønt problemet            
+ [reidar-s5.txt, 1566]                kan vi sikre oss at |     elevene      | har skjønt problemet og så                 
+ [reidar-s5.txt, 1589] problemene har skjønt problemet eh |     elevene      | har skjønt problemet før vi                
+ [reidar-s5.txt, 1822]            med med når det gjelder |    elevdialog    | når de jobbet sammen to                    
+ [reidar-s5.txt, 1955]               at hvordan vi kan få |     elevene      | til å på en måte                           
+ [reidar-s5.txt, 1966] rette oppmerksomheten mot de andre |     elevene      | sin tenkning egentlig for det              
+ [reidar-s5.txt, 2017]             så var det ingen andre |      elever      | som hang seg på på                         
+ [reidar-s5.txt, 2049]                den men om de andre |     elevene      | prøvde å forstå den det                    
+ [reidar-s5.txt, 2147]                 det som lærer å få |     elevene      | til å i større grad                        
+ [reidar-s5.txt, 2248]             legge til rette for at |     elevene      | har fokus på andre elever                  
+ [reidar-s5.txt, 2253]         elevene har fokus på andre |      elever      | sine strategier og prøver å                
+ [reidar-s5.txt, 2388]          hvordan hvordan kan vi få |     elevene      | til å ha litt mer                          
+ [reidar-s5.txt, 2489]               litt måter en kan gi |     elevene      | ulike roller eller oppgaver altså          
+ [reidar-s5.txt, 2529]            liksom at de hadde gitt |     elevene      | konkrete du har rollen som                 
+ [reidar-s5.txt, 2587]  eh henger selvfølgelig sammen med |     elevene      | hvis vi er heldige å                       
+ [reidar-s5.txt, 2596]            heldige å få de riktige |   elevgruppene   | så så er det alt                           
+ [reidar-s5.txt, 2625]            som lærere for å hjelpe |     elevene      | litt i gang da litt                        
+ [reidar-s5.txt, 2711]            er veldig vanlige at du |      eleven      | sier noe det kan være                      
+ [reidar-s5.txt, 2739]              en sånn jeg tror alle |     elevene      | og lærerne antakeligvis inkludert har      
+ [reidar-s5.txt, 2751]          sånn forventing om at når |      eleven      | presenterer noe sånt så er                 
+ [reidar-s5.txt, 2807]      liksom lærerens jobb å forstå |     elevenes     | tenkning og det er det                     
+ [reidar-s5.txt, 2833]                 kan gjøre for å få |     elevene      | ikke bare å sette seg                      
+ [reidar-s5.txt, 3376]                å hvordan vi kan få |     elevene      | til å rette oppmerksomheten mot            
+ [reidar-s5.txt, 3401]              gjorde hun noe som ga |     elevene      | mulighet til å rette oppmerksomheten       
+ [reidar-s5.txt, 3449]              ganger når vi når når |     elevene      | har snakket sammen to og                   
+ [reidar-s5.txt, 3614]    få oppmerksomheten mot de andre |     elevenes     | tenkning ja vi har jo                      
+ [reidar-s5.txt, 3635]             legge til rette for at |     elevene      | kan fokusere eller være oppmerksomme       
+ [reidar-s5.txt, 3736]      gruppene var tilfeldige og at |     elevene      | kunne se at de var                         
+ [reidar-s5.txt, 3827]              mange kort som det er |      elever      | og så og så er                             
+ [reidar-s5.txt, 4018]                    sa det med å at |     elevene      | skal forklare det de andre                 
+ [reidar-s5.txt, 4024]         skal forklare det de andre |     elevene      | har sagt eller gjenta andre                
+ [reidar-s5.txt, 4030]        har sagt eller gjenta andre |      elever      | har sagt som er kanskje                    
+ [reidar-s5.txt, 4092]                 å til å snakke med |     elevene      | om at det faktisk er                       
+ [reidar-s5.txt, 4122]               lære av hva de andre |     elevene      | har tenkt så så det                        
+  [reidar-s6.txt, 304]             ulike klasser i år nye |      elever      | nye trinn nye elever og                    
+  [reidar-s6.txt, 308]           nye elever nye trinn nye |      elever      | og ingen av dere har                       
+  [reidar-s6.txt, 372]              til rette for og lede |     elevers      | utforsking få elevenes tenking fram        
+  [reidar-s6.txt, 375]      og lede elevers utforsking få |     elevenes     | tenking fram i lyset og                    
+  [reidar-s6.txt, 552]               så er det stadig nye |   elevgrupper    | med nye de er på                           
+  [reidar-s6.txt, 941]                både hos oss og med |     elevene      | og vi begynte allerede på                  
+ [reidar-s6.txt, 1132]            nøtter selv da sånn som |     elevene      | gjør så vi gikk inn                        
+ [reidar-s6.txt, 1295]            kan jobbe med dette med |     elevene      | og så prøvde vi ut                         
+ [reidar-s6.txt, 1327]     oppgave som kan både engasjere |     elevene      | og få de til å                             
+ [reidar-s6.txt, 1408]              så er det ikke alltid |     elevene      | er der helt ennå og                        
+ [reidar-s6.txt, 1474]                  på det at noen av |     elevene      | uansett mister jo fort interessen          
+ [reidar-s6.txt, 1498]                   til en del av de |     elevene      | så det var noen av                         
+ [reidar-s6.txt, 1529]                 vi er jo ivrige og |      elever      | kan være ivrige når de                     
+ [reidar-s6.txt, 1607]          type problem som mange av |     elevene      | opplevde som veldig motiverende og         
+ [reidar-s6.txt, 1687]             det var et problem som |     elevene      | fikk følelsen av at dette                  
+ [reidar-s6.txt, 1768]        og presenter et problem for |     elevene      | hva må vi si hva                           
+ [reidar-s6.txt, 1795]               en sikre seg at alle |     elevene      | har forstått problemet før en              
+ [reidar-s6.txt, 1875]             med hvordan vi skal få |     elevene      | til å ikke bare henvende                   
+ [reidar-s6.txt, 1897] tenkingen og strategiene til andre |      elever      | det var en ting som                        
+ [reidar-s6.txt, 2003]              roller og bruke og gi |     elevene      | roller og så er jeg                        
+ [reidar-s6.txt, 2155]             ut ulike måter å styre |   elevdialoger   | og helklassediskusjoner omkring et problem 
+ [reidar-s6.txt, 2388]           rette for at flest mulig |      elever      | kan få jobbe med meningsfull               
+ [reidar-s6.txt, 2459]                 at da har ikke den |      eleven      | noen muligheter igjen på en                
+ [reidar-s6.txt, 2558]                  da punkt en så må |     elevene      | da altså da er første                      
+ [reidar-s6.txt, 2598]           fort sånn at den enkelte |      eleven      | sitter og har fokuset på                   
+ [reidar-s6.txt, 2779]            for at alle disse ulike |     elevene      | om ikke hele tida så                       
+ [reidar-s6.txt, 2831]         at nettopp sånne den typen |      elever      | får den følelsen av at                     
+ [reidar-s6.txt, 2954]            hvordan en kan gi ulike |      elever      | den opplevelsen av å lykkes                
+ [reidar-s6.txt, 3009]                 dere er nå med nye |   elevgrupper    | eller når jeg tenker tilbake               
+ [reidar-s6.txt, 3168]         å lede disse samtalene der |     elevene      | presenterer sin tenking hvordan en         
+ [reidar-s6.txt, 3335]             men også i forhold til |     elevene      | og undervisningen de drev veldig           
+ [reidar-s6.txt, 3427]             også at hun gjorde med |      elever      | i klasserommet liksom da og                
+ [reidar-s6.txt, 3835]                 om det å trene opp |     elevene      | til å lytte å ikke                         
+ [reidar-s6.txt, 3887]             ganger at jeg hører en |       elev       | eller en student for den                   
+ [reidar-s6.txt, 3991]             så utrolig mye av sine |      elever      | og sine studenter og så                    
+ [reidar-s6.txt, 4086]        om utgangspunktet til de to |     elevene      | er kanskje litt annerledes enn             
+ [reidar-s6.txt, 4095]     annerledes enn det mange andre |      elever      | i klassen men likevel men                  
+ [reidar-s6.txt, 4121]              at det kan være mange |      elever      | som kommer med gode innspill               
+ [reidar-s6.txt, 4152]                  og hva er det den |      eleven      | mente når han sa det                       
+ [reidar-s6.txt, 4473]                  om å lykkes og gi |     elevene      | opplevelsen av å lykkes og                 
+ [reidar-s6.txt, 4570]              der hvordan vi kan gi |     elevene      | opplevelsen av ja jaja og                  
+ [reidar-s6.txt, 4588]                   om å lykkes å gi |     elevene      | erfaring med å gi ulike                    
+ [reidar-s6.txt, 4594]            erfaring med å gi ulike |      elever      | ulike typer elever opplevelsen av          
+ [reidar-s6.txt, 4597]        gi ulike elever ulike typer |      elever      | opplevelsen av å lykkes kanskje            
+ [reidar-s6.txt, 4625]          at vi virkelig lytter til |     elevene      | også egentlig kanskje så det               
+ [reidar-s6.txt, 4686]                   så kan du gi den |      eleven      | opplevelsen av å lykkes men                
+ [reidar-s6.txt, 4727]                 nå tror jeg at den |      eleven      | opplevde noe men at en                     
+ [reidar-s6.txt, 4840]           å synliggjøre noe som en |       elev       | gjør som en vil legge                      
+ [reidar-s6.txt, 4863]              så en lærer som altså |     elevene      | hadde hatt noe i lekse                     
+ [reidar-s6.txt, 4878]              ho sett hvordan en av |     elevene      | hadde ført regnestykket på en              
+ [reidar-s6.txt, 4903]               leksa så fikk ho den |      eleven      | til å vise og la                           
+ [reidar-s6.txt, 4945]                  og så fikk jo den |      eleven      | en boost og da fikk                        
+ [reidar-s6.txt, 4962]             men da fikk liksom den |      eleven      | understrekt det at det også                
+ [reidar-s6.txt, 5012]            det er litt andre typer |      elever      | som får til ting kanskje                   
+ [reidar-s6.txt, 5052]              oi det var liksom den |      eleven      | fikk klarte å finne ut                     
+ [reidar-s6.txt, 5086]                  også det med å gi |     elevene      | ulike roller hvor det å                    
+ [reidar-s6.txt, 5097]                    av og til gi en |       elev       | nå kan du gå opp                           
+ [reidar-s6.txt, 5153]                kan jeg gi de ulike |     elevene      | erfaringer gode erfaringer med å           
+ [reidar-s6.txt, 5235]             vi som lærere gi ulike |      elever      | opplevelsen av å lykkes eller              
+ [reidar-s6.txt, 5802]            han sitter med disse to |     elevene      | er det noe der som                         
+ [reidar-s6.txt, 6060]        typer ideer og innspill som |     elevene      | har for å for at                           
+ [reidar-s6.txt, 6067]                 for å for at ulike |      elever      | kan få opplevelsen av å
+#+end_example
+
+****** Reidar, frequencies including stopwords
+#+begin_src R :session :results output
+reidar_student <- kwic(reidar_tokens, pattern =  "elev*", window = 5)
+
+reidar_student_corpus <- corpus(reidar_student)
+reidar_student_tokens <- tokens(reidar_student_corpus, what = "word")
+reidar_student_dfm <- dfm(reidar_student_tokens)
+features_reidar_student <- textstat_frequency(reidar_student_dfm)
+head(features_reidar_student, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1      det       104    1      97   all
+2        å        84    2      79   all
+3       og        81    3      76   all
+4       at        68    4      67   all
+5      som        59    5      56   all
+6       en        54    6      52   all
+7       er        51    7      51   all
+8       så        42    8      39   all
+9      til        40    9      40   all
+10     med        39   10      37   all
+#+end_example
+
+****** Roy
+#+begin_src R :session :results output
+roy_student <- kwic(roy_tokens, pattern =  "elev*", window = 5)
+
+roy_student_corpus <- corpus(roy_student)
+roy_student_tokens <- tokens(roy_student_corpus, what = "word")
+roy_student_tokens <- tokens_select(roy_student_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+roy_student_dfm <- dfm(roy_student_tokens)
+features_roy_student <- textstat_frequency(roy_student_dfm)
+head(features_roy_student, 10)
+
+cat("\n")
+roy_student
+#+end_src
+
+#+RESULTS:
+#+begin_example
+    feature frequency rank docfreq group
+1        jo         4    1       4   all
+2        to         4    1       4   all
+3      måte         3    3       3   all
+4  egentlig         2    4       2   all
+5       del         2    4       2   all
+6    sitter         2    4       2   all
+7        sa         2    4       2   all
+8       ser         1    8       1   all
+9    forstå         1    8       1   all
+10     lett         1    8       1   all
+
+Keyword-in-context with 27 matches.                                                                                                   
+  [roy-s1.txt, 144]              det du ser er at | elevene | blir jo engasjert når du             
+  [roy-s1.txt, 500]         forstå på en måte hva | elevene | sa men jeg hadde store               
+  [roy-s2.txt, 862]             lett å ta inn nye | elever  | når at når at en                     
+  [roy-s3.txt, 291]   veldig jeg har faktisk latt | elevene | velge en del der fordi               
+  [roy-s3.txt, 629]      hadde de godtatt hvis en |  elev   | hadde satt opp tosifret ganger       
+  [roy-s3.txt, 819]       jo egentlig tenkt at en |  elev   | skulle kjøre det men jeg             
+ [roy-s3.txt, 1145]          da plukket jeg ut en |  elev   | så sa jeg hva er                     
+ [roy-s3.txt, 1160]       jeg skulle plukke ut en |  elev   | helt tilfeldig hva er sannsynligheten
+ [roy-s3.txt, 1322]   sekssifret tall og dette er | elever  | som nå er oppe og                    
+ [roy-s3.txt, 1387]         jeg jo spesielt på en |  elev   | da det er ofte lettest               
+ [roy-s3.txt, 1495]       det er noen med hvilken |  elev   | gjorde jeg det med det               
+ [roy-s3.txt, 1508]     sikkert at det var riktig |  elev   | sånn sett kanskje trigger det        
+ [roy-s3.txt, 1761]            okey vi kan si til | elevene | nå er det din tur                    
+  [roy-s4.txt, 786]   nelly metoden men jeg hører | elevene | sier at jeg forstår ingenting        
+  [roy-s4.txt, 866]              når du får en ny |  elev   | da er det fillen ikke                
+ [roy-s4.txt, 1203]           jeg sagt til en del | elever  | at her kan de bruke                  
+  [roy-s5.txt, 509] på dette her i utgangspunktet | elevene | det er liksom ja jeg                 
+  [roy-s5.txt, 625]         går det bedre men når | eleven  | sitter på en måte for                
+  [roy-s5.txt, 634]        måte for det var denne | eleven  | jeg snakket om her det               
+  [roy-s5.txt, 727]           å si det sånn hadde | elevene | vunnet hvert år så hadde             
+   [roy-s6.txt, 87]  jeg har spesped-matte med to | elever  | og da hvordan skal jeg               
+  [roy-s6.txt, 508]         jeg har mye kjørt med | elever  | som strever skikkelig med alt        
+ [roy-s6.txt, 1129]          når du sitter med to | elever  | så blir kommunikasjonen på en        
+ [roy-s6.txt, 1217]            hva skal jeg si få | elevene | i tale på ja er                      
+ [roy-s6.txt, 1529]             så slo det meg at | elevene | fortalte egentlig om hvordan været   
+ [roy-s6.txt, 2099]              da var det jo en |  elev   | som omtrent kjørte styrte hele       
+ [roy-s6.txt, 2406]              det er det er to | elever  | som er to vidt forskjellige
+#+end_example
+
+****** Roy, frequencies including stopwords
+#+begin_src R :session :results output
+roy_student <- kwic(roy_tokens, pattern =  "elev*", window = 5)
+
+roy_student_corpus <- corpus(roy_student)
+roy_student_tokens <- tokens(roy_student_corpus, what = "word")
+roy_student_dfm <- dfm(roy_student_tokens)
+features_roy_student <- textstat_frequency(roy_student_dfm)
+head(features_roy_student, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1      det        19    1      17   all
+2      jeg        17    2      17   all
+3       er        14    3      13   all
+4       en        13    4      13   all
+5       at         8    5       7   all
+6       på         6    6       6   all
+7      med         6    6       6   all
+8      når         6    6       5   all
+9    hadde         5    9       5   all
+10      da         5    9       5   all
+#+end_example
+
+****** Ted
+#+begin_src R :session :results output
+ted_student <- kwic(ted_tokens, pattern =  "elev*", window = 5)
+
+ted_student_corpus <- corpus(ted_student)
+ted_student_tokens <- tokens(ted_student_corpus, what = "word")
+ted_student_tokens <- tokens_select(ted_student_tokens, 
+                             stopwords('norwegian'), 
+                             selection='remove')
+ted_student_dfm <- dfm(ted_student_tokens)
+features_ted_student <- textstat_frequency(ted_student_dfm)
+head(features_ted_student, 10)
+
+cat("\n")
+ted_student
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1       jo         9    1       9   all
+2    altså         7    2       7   all
+3     elev         6    3       6   all
+4       få         4    4       4   all
+5    lærer         3    5       3   all
+6     hatt         3    5       3   all
+7   veldig         3    5       3   all
+8      nye         3    5       3   all
+9     litt         3    5       3   all
+10    godt         3    5       3   all
+
+Keyword-in-context with 58 matches.                                                                                                                     
+   [ted-s1.txt, 45]               er sykt mange begrep som |     elevene     | ikke har innhold i altså              
+  [ted-s1.txt, 244]                 ting de skal gjøre som |     elevene     | på en måte ikke forbinder             
+  [ted-s1.txt, 582]                       og så har jeg en |      elev       | i klassen for å finne                 
+  [ted-s1.txt, 712]         utgangspunkt i noe konkret som |     elevene     | kjente og så kjente de                
+  [ted-s1.txt, 945]                tror jeg mange av disse |     elevene     | våre er de er så                      
+ [ted-s1.txt, 1453]                 men jeg krever det til |     elevene     | ta med dere ti delestykker            
+ [ted-s1.txt, 1550]         med samspillet mellom lærer og |     elever      | de har jobbet mye med                 
+ [ted-s1.txt, 1705]                        jeg på å si når |     elevene     | kommer i femte og skal                
+ [ted-s1.txt, 2309]                       for det er jo da |     elevene     | hvis du da tar multiplikasjon         
+   [ted-s2.txt, 57]                også snakket om der som |     elevene     | er der de er når                      
+  [ted-s2.txt, 224]               som jeg tror noen sterke |     elever      | og så er det en                       
+  [ted-s2.txt, 255]               så sitter det noen andre |     elever      | som egentlig ikke er noe              
+  [ted-s2.txt, 727]                     med en av de eldre |     elevene     | her nei en lærer her                  
+  [ted-s2.txt, 738]                   som jeg har hatt som |      elev       | på skolen så jeg bare                 
+  [ted-s2.txt, 840]                      det at noen av de |     elevene     | som har den tålmodigheten eller       
+ [ted-s2.txt, 1031]                        det å få de der |     elevene     | som gjerne ikke er de                 
+ [ted-s2.txt, 1138]              er veldig sjelden at noen |     elever      | er bare genuint supre i               
+ [ted-s2.txt, 1281]                      lang tid for å få |     elevene     | til å være med på                     
+ [ted-s2.txt, 2630]                        er ja det er en |      elev       | det er ganske fascinerende å          
+ [ted-s2.txt, 2701]                  klart at det eh mange |     elever      | ville nok oi hva skjedde              
+ [ted-s2.txt, 3401]                    ok jeg har jo mange |     elever      | som sier åh kan jeg                   
+ [ted-s3.txt, 1935]                  siden da jeg hadde en |      elev       | i første klasse jobbe litt            
+ [ted-s3.txt, 2071]               hvis hadde det valgt den |     eleven      | altså hvordan hadde det blitt         
+ [ted-s3.txt, 3613]                       for en del av de |     elevene     | som eller ja som er                   
+ [ted-s3.txt, 3828]           etter dem som hadde intervju |     elevene     | da kom det en hel                     
+   [ted-s4.txt, 35]                 at når jeg snakker med |     elevene     | nå holder jeg på å                    
+  [ted-s4.txt, 692]                     at vi er ute etter |     elevene     | når de jobber sånn hvordan            
+  [ted-s4.txt, 825]                  nå har jeg hatt disse |     elevene     | en stund så vet jeg                   
+ [ted-s4.txt, 1518]                      noe med at for at |     elevene     | og ser at når du                      
+ [ted-s5.txt, 3182]                   nå er jeg ferdig med |  elevsamtalene  | eller elev og foreldresamtaler og     
+ [ted-s5.txt, 3184]     jeg ferdig med elevsamtalene eller |      elev       | og foreldresamtaler og et av          
+ [ted-s5.txt, 3197]                  som vi jobbet mye med |     elevene     | før det var jo dette                  
+ [ted-s5.txt, 3869]                         der med å å la |     elevene     | forklare hverandre sin tankegang altså
+ [ted-s5.txt, 3913]                 det tenker jeg med med |      elev       | altså med elevene så er               
+ [ted-s5.txt, 3916]                 med med elev altså med |     elevene     | så er det noe med                     
+    [ted-s6.txt, 2]                                    nye |     elever      | og nye trinn meg og                   
+  [ted-s6.txt, 280]                   altså når du får nye |     elever      | så må du jo på                        
+  [ted-s6.txt, 562]                   så driver det litt i |   elevgruppa    | og du klarer å få                     
+  [ted-s6.txt, 706]   er det veldig mange fremmedspråklige |     elever      | og så skal de de                      
+  [ted-s6.txt, 926]                       det er jo som du |     elevene     | er jo akkurat som oss                 
+  [ted-s6.txt, 959]              merket veldig godt med en |      elev       | en elev som har fått                  
+  [ted-s6.txt, 961]                    godt med en elev en |      elev       | som har fått den tilbakemeldingen     
+ [ted-s6.txt, 1175]                 en del av opplegget at |     elevene     | skal lage sine egne oppgaver          
+ [ted-s6.txt, 1854]                       det der med å få |     elever      | til å fortelle på en                  
+ [ted-s6.txt, 1964]                lytte godt til de andre |     elevene     | medelevene det er og der              
+ [ted-s6.txt, 2311]                   er jo den her aktive |     eleven      | det er altså alle på                  
+ [ted-s6.txt, 2324]                     så er det jo klart | elevaktiviteten | diskusjonen læring av hverandre dette 
+ [ted-s6.txt, 2561]               kommer det en oppgave en |      elev       | nei en elev har vært                  
+ [ted-s6.txt, 2564]                 oppgave en elev nei en |      elev       | har vært på trening på                
+ [ted-s6.txt, 2577]         etter treningen så løper denne |     eleven      | x antall ganger fram og               
+ [ted-s6.txt, 2607]                   så sto det har denne |     eleven      | løpt førti fire hundre kilometer      
+ [ted-s6.txt, 2935] er dialogen lettere diskusjonen mellom |     elevene     | hvordan skal vi løse problemet        
+ [ted-s6.txt, 2980]          ulike situasjoner og gi ulike |     elever      | opplevelsen av å lykkes men           
+ [ted-s6.txt, 3151]                       det det er og de |     elevene     | som vokser opp nå de                  
+ [ted-s6.txt, 3184]                  litt sånn ja gi ulike |     elever      | opplevelse av å lykkes ja             
+ [ted-s6.txt, 3270]                     hvis han i dag han |     eleven      | hadde hatt en voksen som              
+ [ted-s6.txt, 3474]                    meg som lærer og av |     elever      | hvordan jobber vi hvordan skal        
+ [ted-s6.txt, 3519]                       det var jo de to |     elevene     | du har og så gjort
+#+end_example
+
+****** Ted, frequencies including stopwords
+#+begin_src R :session :results output
+ted_student <- kwic(ted_tokens, pattern =  "elev*", window = 5)
+
+ted_student_corpus <- corpus(ted_student)
+ted_student_tokens <- tokens(ted_student_corpus, what = "word")
+ted_student_dfm <- dfm(ted_student_tokens)
+features_ted_student <- textstat_frequency(ted_student_dfm)
+head(features_ted_student, 10)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   feature frequency rank docfreq group
+1       er        28    1      25   all
+2      det        27    2      26   all
+3      som        22    3      20   all
+4       en        22    3      19   all
+5      med        21    5      18   all
+6       og        20    6      17   all
+7       de        17    7      16   all
+8      jeg        17    7      17   all
+9       så        16    9      16   all
+10       å        14   10      13   all
+#+end_example
+
+* Concluding discussion
+Whereas previous research has focused on how the views of participants can hinder successful professional development initiatives (Santagata et al., 2020), the present study focuses on the communication and word use of participants and investigates misaligned communication as a potential impediment for successful development efforts in mathematics education. The discussion below highlights two areas of misalignment in communication and one methodical perspective.
+
+A first area of misaligned communication relates to how participants talked about the problem. /Partners in Practice/ aims at developing partnerships between teachers and researchers to collaboratively explore what it might look like to develop teaching with problems (Lampert, 2001). All three of the target participants in this study talked a lot about “problem”, but the analysis identified some differences in communication worth noticing. Whereas Reidar, as the facilitator, talked a lot about the problems in terms of opportunities for the group (“we”) to collaboratively explore and try out things, Roy and Ted often turned their attention to the students’ lack of motivation and ability as constraints to teaching with problems. In a partnership like this, it can be difficult to develop productive collaborative exploration of problems and the teaching with problems if the teachers stay in a talk about how students’ lack of motivation and ability would prevent such efforts to succeed. This kind of misaligned communication must be identified and worked on for a professional development initiative to succeed.
+
+A second area of misalignment in communication was in how participants talked about students. Attending to students’ mathematical thinking and being responsive to it is emphasized in the research literature (e.g., Kavanagh et al., 2020), and Reidar’s talk about students highlighted attending to students’ thinking and the ideas and strategies that students might bring, and to consider ways of facilitating their learning and exploration. Roy and Ted, on the other hand, stayed in a way of talking about students as struggling, and they often used labels like “weak” or “strong” to describe students. If teachers maintain deficit views of students, it is difficult to facilitate productive investigations and problem solving, and this is also a potential misalignment in communication that needs to be identified and addressed in professional development.
+
+A final reflection concerns some issues relating to the methods and analysis techniques that were used in this study. Analyzing data from professional development initiatives where the researchers themselves are participating can be challenging, and there is always a danger of bias. In such a context, it was useful to apply analysis techniques from computational text analysis, which provided a more objective perspective on the data. Future studies should consider using such approaches, perhaps in combination with more conventional and qualitative analytic approaches — in particular in studies where there is a danger of bias.
+
+* References
+Benoit, K., Watanabe, K., Wang, H., Nulty, P., Obeng, A., Müller, S., & Matsuo, A. (2018). Quanteda: an R package for the quantitative analysis of textual data. /Journal of Open Source Software, 3/​(30), 774.  [[https://doi.org/10.21105/joss.00774]]
+
+Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent Dirichlet allocation. /Journal of Machine Learning Research, 3/(Jan), 993--1022.
+
+Clarke, D. (2007). Ten key principles from research for the professional development of mathematics teachers. In G. C. Leder & H. Forgasz (Eds.), /Stepping stones for the 21^{st} century/ (pp. 27--39). Brill.
+
+Kavanagh, S. S., Metz, M., Hauser, M., Fogo, B., Taylor, M. W., & Carlson, J. (2020). Practicing responsiveness: Using approximations of teaching to develop teachers' responsiveness to students' ideas.  /Journal of Teacher Education/, /71/(1), 94--107.  [[https://doi.org/10.1177/0022487119841884]]
+
+Lampert, M. (2001). /Teaching problems and the problems of teaching./ Yale University Press.
+
+R Core Team (2023). /R: A language and environment for statistical computing/. R Foundation for Statistical Computing, Vienna, Austria.  [[https://www.r-project.org]]
+
+Santagata, R., Lee, J., & Sandoval, C. (2020). Research-practice partnerships in mathematics teacher education. In G. M. Lloyd & O.  Chapman (Eds.), /International handbook of mathematics teacher education: Volume 3. Participants in mathematics teacher education/ (pp.  183--210). Brill.
+
+[fn:1] “We” here refers to the group of researchers that facilitated the
+       professional development.
+
+[fn:2] In the results section, I refer to myself as “Reidar” and “he” to
+       signal that I now consider the analysis of my communication as one of the participants in the study.
